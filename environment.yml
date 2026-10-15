@@ -1,0 +1,20 @@
+name: twcr
+channels: [conda-forge]
+dependencies:
+  - python=3.12
+  - numpy
+  - scipy
+  - pandas
+  - xarray
+  - netcdf4
+  - dask
+  - pyyaml
+  - f90nml
+  - matplotlib
+  - tabulate
+  - pytest
+  - cdsapi>=0.7
+  - nco            # ncdump for run_wrf.sh (also available from the netCDF install)
+  - pip
+  - pip:
+      - imdlib

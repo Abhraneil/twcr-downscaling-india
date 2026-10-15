@@ -1,0 +1,168 @@
+#!/usr/bin/env python3
+"""Score every run of every event against IMD and write the results tables.
+
+    python scripts/scoring/score_all.py
+
+Inputs : data/daily/<event>/<run>.nc  (scripts/postprocess/extract_precip.py)
+         data/obs/imd_rain_<year>.nc    (scripts/download/get_imd.py)
+Outputs: results/scores.csv (one row per event x run x metric)
+         results/SCORECARD.md (headline table, see docs/metrics.md)
+"""
+from __future__ import annotations
+
+import sys
+from datetime import datetime, timedelta
+from pathlib import Path
+
+import numpy as np
+import pandas as pd
+import xarray as xr
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from common import DATA, ROOT, load_config  # noqa: E402
+import metrics as M  # noqa: E402
+
+
+def obs_for_event(cfg, ev, lat, lon):
+    s = datetime.fromisoformat(ev["score_start"])
+    starts = [s + timedelta(days=i) for i in range(ev["score_ndays"])]
+    fwd = cfg["observations"]["imd_label"] == "forward"
+    labels = [(t if fwd else t + timedelta(days=1)).date() for t in starts]
+    years = sorted({d.year for d in labels})
+    imd = xr.concat([xr.open_dataset(DATA / "obs" / f"imd_rain_{y}.nc")["rain"] for y in years], "time")
+    o = imd.sel(time=[np.datetime64(d) for d in labels]).sel(lat=lat, lon=lon, method="nearest")
+    if not (np.allclose(o["lat"], lat) and np.allclose(o["lon"], lon)):
+        raise ValueError("IMD grid does not match the scoring grid")
+    return o.values.astype("float64"), labels
+
+
+def score_run(m, o, mask, w, lat, lon, thresholds, windows):
+    rows = {}
+    tot_m, tot_o = m.sum(0), o.sum(0)
+    rows["bias_pct"] = M.bias_pct(m, o, mask, w)
+    rows["corr_total"] = M.pattern_corr(tot_m, tot_o, mask, w)
+    rows["rmse_total_mm"] = M.rmse(tot_m, tot_o, mask, w)
+    rows["peak_ratio"] = M.peak_ratio(m, o, mask)
+    rows["q99_ratio"] = M.q99_ratio(m, o, mask)
+    rows["maxloc_err_km"] = M.max_location_error_km(tot_m, tot_o, mask, lat, lon)
+    for k, v in M.sal(tot_m, tot_o, mask, lat, lon).items():
+        rows[f"SAL_{k}"] = v
+    for t in thresholds:
+        for n in windows:
+            rows[f"FSS_{t:g}mm_{n}pt"] = M.fss(m, o, mask, t, n)
+    return rows
+
+
+def main():
+    cfg = load_config()
+    sc = cfg["scoring"]
+    out = []
+    for ev_name, ev in cfg["events"].items():
+        ddir = DATA / "daily" / ev_name
+        files = sorted(ddir.glob("*.nc"))
+        if not files:
+            print(f"{ev_name}: no daily files, skipping")
+            continue
+        ref = xr.open_dataset(files[0])
+        lat, lon = ref["lat"].values, ref["lon"].values
+        o, labels = obs_for_event(cfg, ev, lat, lon)
+        b = ev["score_box"]
+        inbox = ((lat >= b["lat_min"]) & (lat <= b["lat_max"]))[:, None] & \
+                ((lon >= b["lon_min"]) & (lon <= b["lon_max"]))[None, :]
+        mask = inbox & np.all(np.isfinite(o), axis=0)
+        w = M.area_weights(lat, lon)
+        print(f"{ev_name}: IMD labels {labels[0]}..{labels[-1]}, {int(mask.sum())} scoring cells, "
+              f"observed box max {np.nanmax(np.where(mask, o, np.nan)):.0f} mm/day")
+        for t in sc["thresholds_mm_day"]:
+            u = M.fss_useful(o, mask, t)
+            out.append(dict(event=ev_name, run="IMD", metric=f"FSS_useful_{t:g}mm", value=u))
+            print(f"   FSS useful target at {t} mm: {u:.3f}")
+        for f in files:
+            m = xr.open_dataset(f)["pr"].values.astype("float64")
+            run = f.stem
+            r = score_run(m, o, mask, w, lat, lon, sc["thresholds_mm_day"], sc["fss_window_points"])
+            for k, v in r.items():
+                out.append(dict(event=ev_name, run=run, metric=k, value=v))
+    if not out:
+        sys.exit("nothing scored")
+    df = pd.DataFrame(out)
+    # added value relative to the driver that forced the run
+    av = []
+    for (ev_name, run), g in df.groupby(["event", "run"]):
+        if run.startswith("DRIVER_"):
+            continue
+        drv = run.split("_")[-1]
+        base = df[(df.event == ev_name) & (df.run == f"DRIVER_{drv}")].set_index("metric")["value"]
+        if base.empty:
+            continue
+        cur = g.set_index("metric")["value"]
+        for k in cur.index:
+            if k.startswith("FSS_") or k == "corr_total":
+                av.append(dict(event=ev_name, run=run, metric=f"AV_{k}", value=cur[k] - base[k]))
+            if k == "bias_pct":
+                av.append(dict(event=ev_name, run=run, metric="AV_abs_bias_pct", value=abs(base[k]) - abs(cur[k])))
+    df = pd.concat([df, pd.DataFrame(av)], ignore_index=True)
+    res = ROOT / "results"
+    res.mkdir(exist_ok=True)
+    df.to_csv(res / "scores.csv", index=False, float_format="%.4f")
+    head = ["bias_pct", "corr_total", "peak_ratio", "maxloc_err_km", "SAL_S", "SAL_A", "SAL_L",
+            "FSS_115.6mm_5pt", "FSS_204.5mm_5pt", "AV_FSS_115.6mm_5pt"]
+    lines = ["# Scorecard (generated by scripts/scoring/score_all.py)", ""]
+    for ev_name, g in df.groupby("event"):
+        t = g.pivot(index="run", columns="metric", values="value")
+        cols = [c for c in head if c in t.columns]
+        lines += [f"## {ev_name}", "", t[cols].round(3).to_markdown(), ""]
+    (res / "SCORECARD.md").write_text("\n".join(lines))
+    print("\n".join(lines))
+    hyp = evaluate_hypotheses(df)
+    (res / "HYPOTHESES.md").write_text(hyp)
+    print(hyp)
+
+
+def evaluate_hypotheses(df: pd.DataFrame) -> str:
+    """Pass/fail for the pre-registered criteria in docs/metrics.md."""
+    v = {(r.event, r.run, r.metric): r.value for r in df.itertuples()}
+    g = lambda e, run, m: v.get((e, run, m), np.nan)
+    E1, E2 = "E1_kerala1924", "E2_mumbai2005"
+    models = ["WRF", "RegCM"]
+    lines = ["# Pre-registered criteria (generated by scripts/scoring/score_all.py)", "",
+             "| ID | Case | Value(s) | Result |", "|---|---|---|---|"]
+
+    def row(i, case, val, ok):
+        res = "n/a (missing run)" if ok is None else ("PASS" if ok else "FAIL")
+        lines.append(f"| {i} | {case} | {val} | {res} |")
+
+    u115 = g(E2, "IMD", "FSS_useful_115.6mm")
+    for m in models:
+        r = f"{m}_3km_ERA5"
+        f, b = g(E2, r, "FSS_115.6mm_5pt"), g(E2, r, "bias_pct")
+        ok = None if np.isnan(f) else bool(f >= u115 and abs(b) <= 30)
+        row("H1", r, f"FSS {f:.2f} (useful {u115:.2f}), bias {b:.0f}%", ok)
+    for m in models:
+        for res_ in ("12km", "3km"):
+            fe, ft = g(E2, f"{m}_{res_}_ERA5", "FSS_115.6mm_5pt"), g(E2, f"{m}_{res_}_20CRv3", "FSS_115.6mm_5pt")
+            bt = g(E2, f"{m}_{res_}_20CRv3", "bias_pct")
+            ok = None if np.isnan(fe) or np.isnan(ft) else bool(fe - ft <= 0.15 and abs(bt) <= 30)
+            row("H2", f"{m}_{res_}", f"dFSS {fe - ft:.2f}, bias(20CRv3) {bt:.0f}%", ok)
+    for (e, run) in sorted({(e, r) for (e, r, _) in v if r.split("_")[0] in models}):
+        a = g(e, run, "AV_FSS_64.5mm_5pt")
+        row("H3", f"{e} {run}", f"AV {a:+.2f}", None if np.isnan(a) else bool(a > 0))
+    for e, drvs in ((E1, ["20CRv3"]), (E2, ["20CRv3", "ERA5"])):
+        for d in drvs:
+            for m in models:
+                p3, p12 = g(e, f"{m}_3km_{d}", "peak_ratio"), g(e, f"{m}_12km_{d}", "peak_ratio")
+                f3, f12 = g(e, f"{m}_3km_{d}", "FSS_115.6mm_5pt"), g(e, f"{m}_12km_{d}", "FSS_115.6mm_5pt")
+                ok = None if np.isnan(p3) or np.isnan(p12) else bool(abs(p3 - 1) < abs(p12 - 1) and f3 > f12)
+                row("H4", f"{e} {m} {d}", f"peak {p12:.2f}->{p3:.2f}, FSS {f12:.2f}->{f3:.2f}", ok)
+    u645 = g(E1, "IMD", "FSS_useful_64.5mm")
+    for m in models:
+        r = f"{m}_3km_20CRv3"
+        f, b = g(E1, r, "FSS_64.5mm_9pt"), g(E1, r, "bias_pct")
+        ok = None if np.isnan(f) else bool(f >= u645 and abs(b) <= 40)
+        row("H5", r, f"FSS {f:.2f} (useful {u645:.2f}), bias {b:.0f}%", ok)
+    return "\n".join(lines) + "\n"
+
+
+if __name__ == "__main__":
+    main()
