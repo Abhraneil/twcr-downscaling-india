@@ -1,0 +1,84 @@
+# Single source of truth for the experiment.
+# Every namelist, download request and scoring region is generated from this file
+# by scripts/generate_namelists.py and read by the download/scoring scripts.
+
+experiment:
+  name: twcr-downscaling-india
+  question: >
+    Do regional models driven by the 20th Century Reanalysis v3 (20CRv3) ensemble mean
+    reproduce extreme west-coast monsoon rainfall, and does the skill hold for a
+    pre-1950 event as well as for a modern one?
+
+# Shared outer domain for both events and both models (Mercator, true latitude 15N).
+outer_domain:
+  dx_km: 12.0
+  nx: 271            # west-east mass points
+  ny: 241            # south-north mass points
+  center_lat: 15.0
+  center_lon: 76.0
+  truelat: 15.0
+  vertical_levels_wrf: 50
+  vertical_levels_regcm: 30
+  ptop_hpa: 50.0
+
+inner_domain:
+  dx_km: 3.0
+  ratio: 4
+  nx: 241
+  ny: 241
+  vertical_levels_regcm: 50
+
+drivers:
+  20CRv3:
+    product: ensemble mean, 3-hourly analysis
+    source: NOAA PSL THREDDS (Datasets/20thC_ReanV3)
+    interval_hours: 3
+  ERA5:
+    product: ERA5 reanalysis, pressure levels + single levels, subsampled to 3-hourly
+    source: Copernicus CDS
+    interval_hours: 3
+
+events:
+  E1_kerala1924:
+    title: Great Flood of 1924 (Kerala), southwest monsoon
+    era: pre-1950
+    drivers: [20CRv3]                 # ERA5 begins in 1940
+    sim_start: "1924-07-12T00:00"
+    sim_end: "1924-07-20T06:00"
+    spinup_hours: 24
+    # Scoring windows are 24 h blocks from 03 UTC (08:30 IST, the IMD observation time).
+    score_start: "1924-07-13T03:00"
+    score_ndays: 7
+    inner_center: {lat: 10.25, lon: 76.0}
+    score_box: {lat_min: 8.0, lat_max: 12.5, lon_min: 74.5, lon_max: 77.5}
+    references:
+      - "Great flood of 99: flood peak at Aluva on 17 July 1924 (contemporary engineer's report)"
+  E2_mumbai2005:
+    title: Mumbai 26 July 2005 extreme rainfall, southwest monsoon
+    era: 1981-2015
+    drivers: [20CRv3, ERA5]
+    sim_start: "2005-07-24T00:00"
+    sim_end: "2005-07-29T06:00"
+    spinup_hours: 24
+    score_start: "2005-07-25T03:00"
+    score_ndays: 4
+    inner_center: {lat: 19.0, lon: 73.5}
+    score_box: {lat_min: 17.5, lat_max: 20.5, lon_min: 72.5, lon_max: 74.5}
+    references:
+      - "Kumar et al. 2008, QJRMS 134:1897-1910 (WRF 3.6 km, FNL-driven; 944 mm at Santacruz)"
+
+observations:
+  primary: IMD 0.25 deg gridded daily rainfall (Pai et al. 2014), 1901 onward
+  # Which 24 h window an IMD date label covers. 'forward': label D = 03Z D -> 03Z D+1;
+  # 'backward': label D = 03Z D-1 -> 03Z D. Verified from the data by
+  # scripts/scoring/check_imd_convention.py before any scoring (see docs/metrics.md).
+  imd_label: forward
+  secondary_E2: TRMM 3B42 daily (optional, 1998 onward)
+
+scoring:
+  grid: IMD 0.25 deg
+  remap: conservative (first-order area-weighted)
+  land_only: true
+  thresholds_mm_day: [64.5, 115.6, 204.5]   # IMD heavy / very heavy / extremely heavy
+  fss_window_points: [1, 3, 5, 9]           # 0.25, 0.75, 1.25, 2.25 deg
+  sal_threshold_factor: 0.0667              # 1/15 of the 95th percentile (Wernli et al. 2009)

@@ -1,0 +1,17 @@
+name: checks
+on: [push, pull_request]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - run: pip install numpy scipy pandas xarray netcdf4 dask pyyaml f90nml matplotlib tabulate pytest
+      - name: unit and end-to-end tests
+        run: pytest -q
+      - name: namelist keys exist in WRF v4.5 and RegCM5 sources
+        run: |
+          git clone -q --depth 1 --branch v4.5 https://github.com/wrf-model/WRF.git /tmp/WRF
+          git clone -q --depth 1 https://github.com/ICTP/RegCM.git /tmp/RegCM
+          python scripts/check_namelists.py --wrf /tmp/WRF --regcm /tmp/RegCM
