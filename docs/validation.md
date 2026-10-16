@@ -101,6 +101,17 @@ check on the real 20CRv3 data (`hpc_setup.sh smoke`).
     else, or in T, Z, U or V, stops the download. `tests/integration/fake_psl.py` now writes
     shum on 21 levels (1000-100 hPa) to reproduce this; the driver, the WPS intermediate
     files and the RegCM input are then complete.
+15. **PSL repeatedly cuts short large OPeNDAP responses for 1924.** On the HPC the E1 download
+    got T all zeros, Z up to 1e33, and V with the same 9,303 missing values on consecutive
+    retries: repeating the same request does not help. After two failed whole-field reads,
+    `get_20crv3.py` now requests one day (8 time steps) at a time, checks and retries each
+    piece, and if a piece still fails reports which times and levels are missing, so a
+    broken transfer can be told apart from a gap in the data. Tested offline: a whole-field
+    read that always loses 9,303 values is recovered from 10 daily pieces; a real gap (one
+    time, one level) stops the download with `missing at time 1924-07-15T06; level 925`.
+16. **ERA5 specific humidity has small negative values** (min -6.8e-6 kg/kg in the E2 box),
+    which failed the -1e-6 bound in `check_standard`. `get_era5.py` sets negative q to zero and
+    logs how many; a minimum below -1e-4 kg/kg still stops it.
 
 ## Measured cost
 
