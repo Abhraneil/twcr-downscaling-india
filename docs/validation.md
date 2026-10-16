@@ -24,8 +24,8 @@ check on the real 20CRv3 data (`hpc_setup.sh smoke`).
 | WPS intermediate files read by WPS's own `rd_intermediate.exe`: 189 records per time (TT, RH, SPECHUMD, UU, VV on 28 levels + surface; GHT; PSFC, PMSL, SKINTEMP, SST, SEAICE, SNOW, LANDSEA, SOILHGT; ST/SM on 4 layers), correct dates and grid | pass |
 | RegCM5 `terrain` on the production 12 km grid: domain 1.82-27.61 N, 60.97-91.25 E (WRF d01: 1.76-27.47 N, 60.91-91.09 E) | pass |
 | RegCM5 `sst` and `icbc` read the converted driver through the ERA5 reader at 3-hourly intervals: ps 864-1007 hPa, T 194-302 K, no NaN, correct dates | pass |
-| RegCM5 12 km model, 24 h, MOLOCH core, production physics (reduced grid 161 x 141 to fit the test machine) | see below |
-| RegCM5 3 km FNEST nested on the 12 km output, 24 h | see below |
+| RegCM5 12 km model, 24 h, MOLOCH core, production physics (reduced grid 161 x 141 to fit the test machine) | pass (1465 s on 2 cores) |
+| RegCM5 3 km FNEST nested on the 12 km output, 24 h | PENDING |
 | Scoring chain on synthetic WRF output: daily windows, remap, metrics, scorecard, hypotheses, figures (`tests/test_pipeline.py`) | pass |
 
 ## Problems found and fixed by these checks
@@ -42,6 +42,18 @@ check on the real 20CRv3 data (`hpc_setup.sh smoke`).
    is only a constraint on small test machines (the HPC node has 474 GB and runs 20 ranks).
 5. The 20CRv3 subsetting now slices in the file's own latitude order before loading, so
    each variable is one small OPeNDAP request.
+6. **RegCM5 nesting (FNEST) opens the coarse ATM file named after the first day of the
+   month** (`monfirst` in `PreProc/ICBC/mod_nest.F90`); our 12 km runs start mid-month.
+   `scripts/run/regcm_common.sh` links the month-start name to the real file; FNEST then
+   picks records by their time values, so the link is exact.
+7. **RegCM5 `icbc` can fail and still exit with status 0** (Fortran `STOP`). Success is now
+   judged by the files each preprocessor must write (`regcm_check_prep`).
+8. **RegCM5 bug at commit 06a50b5**: with explicit convection (3 km) the SHF output
+   stream re-enables the convective-precipitation variable `prc` without defining it and
+   the model aborts (`NetCDF: Name contains illegal characters`, `mod_ncout.F90` around
+   line 1395, where `enable_shf_vars` is overwritten by its own earlier copy). The 3 km
+   namelists switch `prc` off with `enable_shf_vars = 8*.true., .false., 2*.true.`;
+   total precipitation `pr` is unaffected. Worth reporting upstream.
 
 ## Measured cost
 

@@ -271,7 +271,11 @@ def regcm_namelist(cfg, ev_name, ev, driver, res):
                       ("ifrad", ".false."), ("ifsrf", ".true."), ("srffrq", 1.0),
                       ("ifsts", ".true."), ("ifshf", ".true."), ("ifsub", ".false."),
                       ("iflak", ".false."), ("ifchem", ".false."), ("outnwf", 0.0),
-                      ("dirout", q("output"))]),
+                      ("dirout", q("output"))]
+                     # RegCM5 06a50b5 bug (mod_ncout.F90 ~l.1395): with explicit convection the SHF
+                     # stream re-enables 'prc' (index 9 of 11) without defining it, and the model
+                     # aborts with "NetCDF: Name contains illegal characters". Switch it off here.
+                     + ([("enable_shf_vars", "8*.true., .false., 2*.true.")] if cup == 0 else [])),
         ("physicsparam", [("iboudy", 5), ("ibltyp", 1), ("icup_lnd", cup), ("icup_ocn", cup),
                           ("ipptls", 2), ("iocnflx", 2), ("iocnrough", 1), ("iocnzoq", 1),
                           ("scenario", q("SSP245")), ("idcsst", 0), ("iseaice", 0),

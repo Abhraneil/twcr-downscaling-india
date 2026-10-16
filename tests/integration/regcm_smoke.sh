@@ -10,6 +10,7 @@
 set -euo pipefail
 EV=$1; DRV=$2; BIN=$3; RCMDATA=$4; W=$5; FULL=${6:-small}
 REPO=$(cd "$(dirname "$0")/../.." && pwd)
+source "$REPO/scripts/run/regcm_common.sh"
 RUNNER=${RUNNER:-}                      # e.g. "mpirun -np 32"; empty = single process (OpenMP)
 mkdir -p "$W"
 ${PYTHON:-python3} "$REPO/scripts/preprocess/to_regcm.py" "$EV" "$DRV" "$W/regcm_input" > /dev/null
@@ -51,9 +52,11 @@ run_res() {
   cp "$REPO/config/experiment.yaml" "$D/experiment.yaml"
   patch_nml "$D/regcm.in" "$RES"
   cd "$D"
+  [ "$RES" = 03km ] && regcm_link_coarse "$W/runs/regcm/${EV}_${DRV}_12km/output"
   for p in terrain sst icbc; do
     "$BIN/$p" regcm.in > $p.log 2>&1 || { echo "$RES $p FAILED"; tail -20 $p.log; exit 1; }
   done
+  regcm_check_prep "$D" "${EV}_${DRV}_${RES}" "$RES" || { echo "$RES preprocessing FAILED"; exit 1; }
   echo "$RES preprocessing OK: $(ls input | tr '\n' ' ')"
   local t0=$(date +%s)
   OMP_NUM_THREADS=${OMP_NUM_THREADS:-2} $RUNNER "$BIN/regcmMPI" regcm.in > regcm.log 2>&1 || true
@@ -64,6 +67,10 @@ run_res() {
   fi
 }
 
-run_res 12km
+if [ "${SMOKE_REUSE_12KM:-0}" = 1 ] && grep -aq "successfully reached end" "$W/runs/regcm/${EV}_${DRV}_12km/regcm.log" 2>/dev/null; then
+  echo "12km: reusing finished run"
+else
+  run_res 12km
+fi
 run_res 03km
 ${PYTHON:-python3} "$REPO/tests/integration/check_regcm_output.py" "$W/runs/regcm" "$EV" "$DRV"
