@@ -74,6 +74,11 @@ check on the real 20CRv3 data (`hpc_setup.sh smoke`).
     with gfortran 11.5, building all of RegCM with the patch (0 errors), and running
     `terrain`, `sst` and `icbc` on the E2 12 km case with both compilers: the initial and
     boundary file is bit-identical in ps, T and q, and wind differs by at most 5e-7 m/s.
+11. **clima-dods.ictp.it refuses the HPC node** (HTTP 403 for every file, plain curl and
+    directory listing alike) while serving the same files to an ordinary connection. The
+    11 static files (2.6 GB: GMTED 235 MB, GLCC 22 MB, GLZB 3 MB, GHG 5 x 4-20 MB, ozone
+    1.7 GB + 514 MB, solar 61 MB) were fetched on a laptop with
+    `scripts/download/get_regcm_static_windows.ps1` and copied with `scp`.
 
 ## Measured cost
 

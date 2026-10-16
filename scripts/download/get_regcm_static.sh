@@ -31,6 +31,6 @@ get "$SITE/CMIP6/SOLAR/$f" "$RCMDATA/CMIP6/SOLAR/$f"
 du -sh "$RCMDATA"/SURFACE "$RCMDATA"/CMIP6/*
 if [ -n "$MISSING" ]; then
   echo "MISSING:$MISSING"
-  echo "Check the directory listing at $SITE/CMIP6/ for renamed files, or download on another machine."
+  echo "403 Forbidden means the site refuses this machine: run scripts/download/get_regcm_static_windows.ps1 (or the same curl lines) on another machine and copy RCMDATA here."
   exit 1
 fi
