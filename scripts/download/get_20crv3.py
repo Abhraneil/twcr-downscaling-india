@@ -11,9 +11,15 @@ File names are resolved from the THREDDS catalog at run time, so a renamed file
 fails loudly instead of silently picking the wrong variable.
 
 Output: data/drivers/<event>_20CRv3.nc in the format defined in scripts/common.py.
+
+If the HPC cannot reach psl.noaa.gov, run this same script on any machine that can
+(it only transfers ~50 MB) and copy data/drivers/<event>_20CRv3*.nc across. Or download
+whole yearly files from https://psl.noaa.gov/thredds/fileServer/Datasets/20thC_ReanV3/<subdir>/<file>
+into <dir>/<subdir>/ and set TWCR_20CR_LOCAL=<dir>.
 """
 from __future__ import annotations
 
+import os
 import re
 import sys
 import time
@@ -49,7 +55,12 @@ def stream(year: int) -> str:
     return "SI" if year <= 1980 else "MO"
 
 
+LOCAL = os.environ.get("TWCR_20CR_LOCAL")   # optional: dir with whole PSL files, laid out <dir>/<subdir>/<file>
+
+
 def catalog(dirname: str) -> list[str]:
+    if LOCAL:
+        return sorted(p.name for p in (Path(LOCAL) / dirname).glob("*.nc"))
     url = f"{BASE}/catalog/{DS}/{dirname}/catalog.xml"
     with urllib.request.urlopen(url, timeout=120) as r:
         root = ET.fromstring(r.read())
@@ -72,6 +83,8 @@ def resolve(files: list[str], prefix: str, year: int | None, level: str | None) 
 
 
 def open_remote(dirname: str, fname: str, retries: int = 4) -> xr.Dataset:
+    if LOCAL:
+        return xr.open_dataset(Path(LOCAL) / dirname / fname, decode_times=True)
     url = f"{BASE}/dodsC/{DS}/{dirname}/{fname}"
     for k in range(retries):
         try:
@@ -83,12 +96,19 @@ def open_remote(dirname: str, fname: str, retries: int = 4) -> xr.Dataset:
 
 
 def subset(da: xr.DataArray, t0=None, t1=None) -> xr.DataArray:
-    da = da.sortby("lat")
-    da = da.sel(lat=slice(DRIVER_BOX["lat_min"], DRIVER_BOX["lat_max"]),
-                lon=slice(DRIVER_BOX["lon_min"], DRIVER_BOX["lon_max"]))
+    """Contiguous slices in the file's own order (one small OPeNDAP request), then sort."""
+    lat = da["lat"].values
+    lo, hi = DRIVER_BOX["lat_min"], DRIVER_BOX["lat_max"]
+    da = da.sel(lat=slice(hi, lo) if lat[0] > lat[-1] else slice(lo, hi))
+    lon = da["lon"].values
+    if lon.min() < 0:
+        raise RuntimeError("expected 0-360 longitudes in PSL 20CRv3 files")
+    da = da.sel(lon=slice(DRIVER_BOX["lon_min"], DRIVER_BOX["lon_max"]))
     if t0 is not None:
         da = da.sel(time=slice(t0, t1))
-    return da.load()
+    if da.size == 0:
+        raise RuntimeError(f"empty subset for {da.name}")
+    return da.load().sortby("lat")
 
 
 def main(event: str) -> None:

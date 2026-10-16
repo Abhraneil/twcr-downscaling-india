@@ -44,7 +44,7 @@
  ssttyp                           = 'ERA5',
  dattyp                           = 'ERA5',
  gdate1                           = 2005072400,
- gdate2                           = 2005072906,
+ gdate2                           = 2005073000,
  calendar                         = 'gregorian',
  dirglob                          = 'input',
  inpglob                          = 'DRIVER_DIR/ERA5',
@@ -54,7 +54,7 @@
  ifrest                           = .false.,
  mdate0                           = 2005072400,
  mdate1                           = 2005072400,
- mdate2                           = 2005072906,
+ mdate2                           = 2005073000,
  /
 
  &timeparam

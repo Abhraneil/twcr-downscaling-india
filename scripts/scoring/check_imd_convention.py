@@ -25,7 +25,11 @@ BOX = dict(lat=slice(18.75, 19.5), lon=slice(72.75, 73.25))   # Mumbai and Thane
 
 def main() -> int:
     cfg = load_config()
-    da = xr.open_dataset(DATA / "obs" / "imd_rain_2005.nc")["rain"].sel(**BOX)
+    f = DATA / "obs" / "imd_rain_2005.nc"
+    if not f.exists():
+        print(f"{f} missing: run scripts/download/get_imd.py 1924 2005 first")
+        return 3
+    da = xr.open_dataset(f)["rain"].sel(**BOX)
     days = ["2005-07-25", "2005-07-26", "2005-07-27", "2005-07-28"]
     vals = {d: float(da.sel(time=d).max()) for d in days}
     for d, v in vals.items():

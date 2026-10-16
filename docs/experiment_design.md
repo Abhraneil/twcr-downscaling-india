@@ -20,8 +20,8 @@ side by side. This experiment does both, on two events, with pre-registered scor
 | Event | Great Flood of 1924 ("flood of 99"), Kerala | 26 July 2005 Mumbai extreme rainfall |
 | Era | pre-1950 | 1981-2015 |
 | Regime | SW monsoon, orographic rain on the Western Ghats | SW monsoon, west coast and Ghats, 944 mm at Santacruz |
-| Simulation | 1924-07-12 00 UTC to 07-20 06 UTC (198 h) | 2005-07-24 00 UTC to 07-29 06 UTC (126 h) |
-| Spin-up | 27 h before the first scored window | 27 h |
+| Simulation | 1924-07-12 00 UTC to 07-21 00 UTC (216 h) | 2005-07-24 00 UTC to 07-30 00 UTC (144 h) |
+| Spin-up | 27 h before the first scored window (runs end on whole days because RegCM5 requires it) | 27 h |
 | Scored | 7 days, 13-20 July (03-03 UTC) | 4 days, 25-29 July (03-03 UTC) |
 | Drivers | 20CRv3 (ERA5 starts in 1940) | 20CRv3 and ERA5 |
 | Scoring box | 8.0-12.5 N, 74.5-77.5 E | 17.5-20.5 N, 72.5-74.5 E |
@@ -83,6 +83,7 @@ is between model systems rather than between single parameterisations.
 | Radiation | RRTMG, no aerosol | CCSM, no aerosol (`iclimaaer = 0`) |
 | Greenhouse gases | CMIP6 historical (by year) | CMIP6 historical (by year, `SSP245` table) |
 | Interior nudging | none | none (spectral relaxation of the model top only, MOLOCH default) |
+| Orographic gravity-wave drag | off (`gwd_opt = 0`) | none in RegCM5 |
 | Lateral boundary | 5-point specified/relaxation zone | exponential relaxation, 20 points (12 km), 31 points (3 km) |
 
 RegCM5 physics follow the CORDEX namelists shipped with the model
