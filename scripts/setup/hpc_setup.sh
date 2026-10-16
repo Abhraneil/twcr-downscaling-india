@@ -81,17 +81,23 @@ stage_python() {
 stage_regcm() {
   hdr "RegCM5 download and build (commit ${REGCM_COMMIT:0:7})"
   local S=$TWCR_HOME/regcm_src/RegCM
-  if [ -x "$S/bin/regcmMPI" ] && [ -x "$S/bin/icbc" ]; then ok "already built: $S/bin"; return; fi
+  if [ -x "$S/bin/regcmMPI" ] && [ -x "$S/bin/icbc" ] && (cd "$S" && git apply --check -R "$REPO/patches/regcm5_fnest_z0.patch" 2>/dev/null); then
+    ok "already built with the FNEST patch: $S/bin"; return; fi
   mkdir -p "$TWCR_HOME/regcm_src"
   [ -d "$S/.git" ] || git clone -q https://github.com/ICTP/RegCM.git "$S" || { bad "git clone RegCM failed"; return; }
   ( cd "$S" && git fetch -q origin && git checkout -q "$REGCM_COMMIT" ) || { bad "commit $REGCM_COMMIT not found"; return; }
+  # Fix for the FNEST (3 km nesting) pressure bug, see docs/validation.md item 9
+  ( cd "$S" && if git apply --check "$REPO/patches/regcm5_fnest_z0.patch" 2>/dev/null; then
+      git apply "$REPO/patches/regcm5_fnest_z0.patch"; echo "  applied patches/regcm5_fnest_z0.patch"
+    elif git apply --check -R "$REPO/patches/regcm5_fnest_z0.patch" 2>/dev/null; then echo "  patch already applied"
+    else exit 1; fi ) || { bad "patches/regcm5_fnest_z0.patch does not apply"; return; }
   command -v autoreconf > /dev/null || { bad "autoreconf missing: conda install -c conda-forge autoconf automake libtool (or module load autotools)"; return; }
   ( cd "$S" && ./bootstrap.sh > "$LOG/regcm_bootstrap.log" 2>&1 \
     && ./configure CC=gcc FC=gfortran MPIFC=mpif90 --with-netcdf="$(nf-config --prefix)" ${HDF5:+--with-hdf5=$HDF5} > "$LOG/regcm_configure.log" 2>&1 \
     && make -j 32 > "$LOG/regcm_make.log" 2>&1 && make install > "$LOG/regcm_install.log" 2>&1 ) \
     || { bad "RegCM build failed: see $LOG/regcm_configure.log and $LOG/regcm_make.log"; return; }
   for e in terrain sst icbc regcmMPI; do [ -x "$S/bin/$e" ] || bad "missing $S/bin/$e"; done
-  ok "built $S/bin (terrain sst icbc regcmMPI)"
+  ok "built $S/bin (terrain sst icbc regcmMPI) at ${REGCM_COMMIT:0:7} + FNEST patch"
 }
 
 stage_download() {
