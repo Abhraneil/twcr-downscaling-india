@@ -10,7 +10,7 @@ check on the real 20CRv3 data (`hpc_setup.sh smoke`).
 
 | Item | Version |
 |---|---|
-| RegCM5 | github.com/ICTP/RegCM commit `06a50b5` (15 Oct 2026); built with gfortran 13.3, netCDF-Fortran 4.5.4, MPICH 4.2 and Open MPI |
+| RegCM5 | github.com/ICTP/RegCM commit `06a50b5` (15 Oct 2026) plus `patches/regcm5_fnest_z0.patch`; built with gfortran 13.3, netCDF-Fortran 4.5.4, MPICH 4.2 and Open MPI |
 | WRF namelist keys | checked against the Registry of WRF v4.5 and current master |
 | WPS | intermediate reader `util/rd_intermediate.F` compiled from WPS master (6 Jul 2026), big-endian, 4-byte record markers |
 
@@ -25,7 +25,8 @@ check on the real 20CRv3 data (`hpc_setup.sh smoke`).
 | RegCM5 `terrain` on the production 12 km grid: domain 1.82-27.61 N, 60.97-91.25 E (WRF d01: 1.76-27.47 N, 60.91-91.09 E) | pass |
 | RegCM5 `sst` and `icbc` read the converted driver through the ERA5 reader at 3-hourly intervals: ps 864-1007 hPa, T 194-302 K, no NaN, correct dates | pass |
 | RegCM5 12 km model, 24 h, MOLOCH core, production physics (reduced grid 161 x 141 to fit the test machine) | pass (1465 s on 2 cores) |
-| RegCM5 3 km FNEST nested on the 12 km output, 24 h | PENDING |
+| RegCM5 3 km nesting (FNEST) pressure field vs independent hypsometric calculation, after the patch | pass (0.02%) |
+| RegCM5 3 km FNEST nested on the 12 km output, 24 h, then output range checks (`check_regcm_output.py`): ps 850-1007 hPa, ta 193-307 K, hus <= 0.019, ua -19..19 m/s, hourly pr <= 15 mm/h | pass (1847 s on 2 cores, 81 x 81 x 50) |
 | Scoring chain on synthetic WRF output: daily windows, remap, metrics, scorecard, hypotheses, figures (`tests/test_pipeline.py`) | pass |
 
 ## Problems found and fixed by these checks
@@ -54,6 +55,15 @@ check on the real 20CRv3 data (`hpc_setup.sh smoke`).
    line 1395, where `enable_shf_vars` is overwritten by its own earlier copy). The 3 km
    namelists switch `prc` off with `enable_shf_vars = 8*.true., .false., 2*.true.`;
    total precipitation `pr` is unaffected. Worth reporting upstream.
+9. **RegCM5 bug at commit 06a50b5 in MOLOCH-to-MOLOCH nesting**: `init_nest` reverses the
+   model-level heights `z0` for interpolation and never restores them, so `writef` builds
+   the 3 km pressure column on reversed heights. Without the fix the 3 km ICBC surface
+   pressure was 1.50 times the true value, the lowest-level Exner function about 0.4, and the
+   3 km model ran to the end with surface pressure collapsing to about 50 hPa (it did not
+   crash: only the output check caught it). `patches/regcm5_fnest_z0.patch` (3 lines) fixes
+   it; afterwards the nested surface pressure equals an independent hypsometric reduction
+   of the 12 km output to the 3 km terrain within 0.02% and the Exner profile matches the
+   12 km reference. `hpc_setup.sh` applies the patch before building.
 
 ## Measured cost
 
