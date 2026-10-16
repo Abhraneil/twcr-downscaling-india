@@ -11,6 +11,9 @@
 # 2. run mpi_f08_check with it; stop unless it prints "MPI f08 OK"
 # 3. rebuild RegCM5 in $TWCR_HOME/regcm_src/RegCM against it and check what it links
 # scripts/run/env.sh then uses $TWCR_HOME/openmpi-$V/bin/mpirun for RegCM5 automatically.
+# If the netCDF/HDF5 on PATH were built with MPICH (as in ~/WRFCHEM), step 3 stops on the
+# linkage check: then run scripts/setup/build_netcdf_serial.sh, which rebuilds RegCM5 with a
+# private MPI-free netCDF.
 # If this node cannot reach download.open-mpi.org, download the tarball elsewhere and put it
 # in $TWCR_HOME/src/ (URL printed below).
 set -euo pipefail
