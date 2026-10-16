@@ -22,3 +22,17 @@ the Exner profile matches the 12 km ICBC (0.95-1.00 at the surface, 0.28 at the 
 
 `scripts/setup/hpc_setup.sh` applies it automatically after checking out the pinned commit.
 It should be reported to github.com/ICTP/RegCM.
+
+## `regcm5_gfortran11_posix.patch` (RegCM5 commit 06a50b5)
+
+**Problem.** `Share/mod_posix.F90` declares the argument of the C `opendir` binding as
+`character(len=*, kind=c_char)`. A `BIND(C)` procedure may only take length-1 character
+dummies; gfortran 12+ tolerates it, gfortran 11 stops with
+`Character argument 'a' at (1) must be length 1 because procedure 'opendir' is BIND(C)`.
+
+**Fix.** Declare it `character(kind=c_char), dimension(*)` (1 line). The caller already
+passes `trim(path)//C_NULL_CHAR`, so nothing else changes.
+
+**Verification.** With gfortran 11.5 the whole tree builds, and `terrain`/`sst`/`icbc` give the
+same output as the gfortran 13 build (`docs/validation.md` item 10). `hpc_setup.sh` applies
+it in both build paths.

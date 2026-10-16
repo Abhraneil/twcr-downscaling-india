@@ -10,7 +10,7 @@ check on the real 20CRv3 data (`hpc_setup.sh smoke`).
 
 | Item | Version |
 |---|---|
-| RegCM5 | github.com/ICTP/RegCM commit `06a50b5` (15 Oct 2026) plus `patches/regcm5_fnest_z0.patch`; built with gfortran 13.3, netCDF-Fortran 4.5.4, MPICH 4.2 and Open MPI |
+| RegCM5 | github.com/ICTP/RegCM commit `06a50b5` (15 Oct 2026) plus `patches/regcm5_fnest_z0.patch` and `patches/regcm5_gfortran11_posix.patch`; built with gfortran 13.3 and 11.5, netCDF-Fortran 4.5.4, MPICH 4.2 and Open MPI |
 | WRF namelist keys | checked against the Registry of WRF v4.5 and current master |
 | WPS | intermediate reader `util/rd_intermediate.F` compiled from WPS master (6 Jul 2026), big-endian, 4-byte record markers |
 
@@ -64,6 +64,16 @@ check on the real 20CRv3 data (`hpc_setup.sh smoke`).
    it; afterwards the nested surface pressure equals an independent hypsometric reduction
    of the 12 km output to the 3 km terrain within 0.02% and the Exner profile matches the
    12 km reference. `hpc_setup.sh` applies the patch before building.
+10. **RegCM5 at commit 06a50b5 does not compile with gfortran 11** (found on the HPC,
+    gfortran 11.4): `Share/mod_posix.F90` declares the C `opendir` argument as
+    `character(len=*, kind=c_char)` inside a `BIND(C)` interface, which gfortran 11 rejects
+    (`Character argument 'a' ... must be length 1 because procedure 'opendir' is BIND(C)`);
+    gfortran 12 and later accept it. `patches/regcm5_gfortran11_posix.patch` declares it as
+    the interoperable `character(kind=c_char), dimension(*)`; the only caller already passes
+    a null-terminated string, so the call is unchanged. Checked by reproducing the error
+    with gfortran 11.5, building all of RegCM with the patch (0 errors), and running
+    `terrain`, `sst` and `icbc` on the E2 12 km case with both compilers: the initial and
+    boundary file is bit-identical in ps, T and q, and wind differs by at most 5e-7 m/s.
 
 ## Measured cost
 

@@ -86,6 +86,14 @@ stage_python() {
   (cd "$REPO" && $PYTHON -m pytest -q 2>&1 | tail -1) | grep -q "passed" && ok "pytest" || bad "pytest failed: cd $REPO && $PYTHON -m pytest -q"
 }
 
+# gfortran 11 rejects a len=* character dummy in RegCM's BIND(C) opendir interface
+# (Share/mod_posix.F90); gfortran >= 12 accepts it. Idempotent. docs/validation.md item 10.
+regcm_posix_fix() {
+  grep -q "character(kind=c_char), dimension(\*), intent(in) :: a" "$1/Share/mod_posix.F90" && return 0
+  ( cd "$1" && git apply "$REPO/patches/regcm5_gfortran11_posix.patch" ) \
+    && echo "  applied patches/regcm5_gfortran11_posix.patch"
+}
+
 stage_regcm() {
   hdr "RegCM5 download and build (commit ${REGCM_COMMIT:0:7})"
   local S=$TWCR_HOME/regcm_src/RegCM
@@ -99,6 +107,7 @@ stage_regcm() {
   if [ -n "$PKG" ]; then
     [ -d "$S" ] && [ ! -f "$S/REGCM_COMMIT" ] && mv "$S" "$S.previous.$(date +%s)"
     [ -d "$S" ] || tar xzf "$PKG" -C "$TWCR_HOME/regcm_src"
+    regcm_posix_fix "$S" || { bad "patches/regcm5_gfortran11_posix.patch does not apply"; return; }
     ( cd "$S" && ./configure CC=gcc FC=gfortran MPIFC=mpif90 --with-netcdf="$(nf-config --prefix)" ${HDF5:+--with-hdf5=$HDF5} > "$LOG/regcm_configure.log" 2>&1 \
       && make -j 32 > "$LOG/regcm_make.log" 2>&1 && make install > "$LOG/regcm_install.log" 2>&1 ) \
       || { bad "RegCM build failed: tail $LOG/regcm_configure.log $LOG/regcm_make.log"; return; }
@@ -112,6 +121,7 @@ stage_regcm() {
       git apply "$REPO/patches/regcm5_fnest_z0.patch"; echo "  applied patches/regcm5_fnest_z0.patch"
     elif git apply --check -R "$REPO/patches/regcm5_fnest_z0.patch" 2>/dev/null; then echo "  patch already applied"
     else exit 1; fi ) || { bad "patches/regcm5_fnest_z0.patch does not apply"; return; }
+  regcm_posix_fix "$S" || { bad "patches/regcm5_gfortran11_posix.patch does not apply"; return; }
   command -v autoreconf > /dev/null || { bad "autoreconf missing: conda install -c conda-forge autoconf automake libtool (or module load autotools)"; return; }
   ( cd "$S" && ./bootstrap.sh > "$LOG/regcm_bootstrap.log" 2>&1 \
     && ./configure CC=gcc FC=gfortran MPIFC=mpif90 --with-netcdf="$(nf-config --prefix)" ${HDF5:+--with-hdf5=$HDF5} > "$LOG/regcm_configure.log" 2>&1 \

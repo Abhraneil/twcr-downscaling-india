@@ -1,0 +1,11 @@
+--- a/Share/mod_posix.F90
++++ b/Share/mod_posix.F90
+@@ -35,7 +35,7 @@
+       import
+       implicit none
+       type(c_ptr) :: opendir
+-      character(len=*, kind=c_char), intent(in) :: a
++      character(kind=c_char), dimension(*), intent(in) :: a
+     end function opendir
+     function readdir(dir) bind(C,name='readdir')
+       import
