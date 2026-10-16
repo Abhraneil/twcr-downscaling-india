@@ -93,6 +93,14 @@ check on the real 20CRv3 data (`hpc_setup.sh smoke`).
     times. `check_standard` also rejects missing values in the fields the models read
     everywhere and checks Z, U, V and SKT bounds. Tested offline by damaging the first two
     transfers of T (zeros, then a missing tail): both were caught, the third was used.
+14. **20CRv3 specific humidity has fewer pressure levels than temperature.** On the HPC the
+    E2 driver failed `check_standard` with `Q has 520331 missing values` = exactly 7 levels
+    x 49 times x 37 x 41 points: after alignment to the 28 T levels, Q had nothing on the 7
+    highest. `get_20crv3.py` now logs the native levels of every 3-D field and holds q at its
+    top published value above that (stratospheric q is a few 1e-6 kg/kg); a gap anywhere
+    else, or in T, Z, U or V, stops the download. `tests/integration/fake_psl.py` now writes
+    shum on 21 levels (1000-100 hPa) to reproduce this; the driver, the WPS intermediate
+    files and the RegCM input are then complete.
 
 ## Measured cost
 

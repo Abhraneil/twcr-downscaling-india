@@ -204,7 +204,28 @@ def main(event: str) -> None:
         da = da.rename({levname: "plev"})
         da = da.assign_coords(plev=(da["plev"].values * 100.0).astype("float64"))  # hPa -> Pa
         da = da.sortby("plev", ascending=False)
-        std[name] = on_target(da).astype("float32")
+        print(f"{name} native levels (hPa): {len(da['plev'])}: {(da['plev'].values / 100).astype(int).tolist()}")
+        std[name] = on_target(da).astype("float32")      # aligned to the T levels
+    # 20CRv3 publishes specific humidity on fewer pressure levels than T (none above its top
+    # level), so after alignment Q is missing on whole levels at the top. Hold q at its
+    # top-level value there (stratospheric q is a few 1e-6 kg/kg; the models are insensitive
+    # to it). Missing values anywhere else, or in any other field, are an error.
+    for name in ["T", "Z", "Q", "U", "V"]:
+        nan_lev = std[name].isnull().any(dim=("time", "lat", "lon")).values
+        if not nan_lev.any():
+            continue
+        p = std["plev"].values
+        whole = std[name].isnull().all(dim=("time", "lat", "lon")).values[nan_lev].all()
+        above = (p[nan_lev] < p[~nan_lev].min()).all() if (~nan_lev).any() else False
+        if name != "Q" or not (whole and above):
+            raise RuntimeError(f"{name} missing on {(p[nan_lev] / 100).tolist()} hPa")
+        q = std["Q"].transpose("time", "plev", "lat", "lon")
+        k = int(np.where(~nan_lev)[0].max())             # highest level with data (plev descending)
+        qv = q.values.copy()
+        qv[:, k + 1:] = qv[:, k:k + 1]
+        std["Q"] = q.copy(data=qv)
+        print(f"Q: none published at {(p[nan_lev] / 100).astype(int).tolist()} hPa; "
+              f"held at its {p[~nan_lev].min() / 100:.0f} hPa value ({float(std['Q'].isel(plev=-1).mean()):.2e} kg/kg)")
     for name in ["T2", "Q2", "U10", "V10", "PSFC", "SKT", "SEAICE", "PMSL", "SNOW"]:  # PRATE handled below
         da = out[name][0]
         extra = [c for c in da.dims if c not in ("time", "lat", "lon")]
