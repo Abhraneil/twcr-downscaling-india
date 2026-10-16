@@ -78,6 +78,7 @@
  ifchem                           = .false.,
  outnwf                           = 0.0,
  dirout                           = 'output',
+ enable_shf_vars                  = 8*.true., .false., 2*.true.,
  /
 
  &physicsparam
