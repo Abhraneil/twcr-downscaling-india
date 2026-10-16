@@ -128,7 +128,9 @@ check on the real 20CRv3 data (`hpc_setup.sh smoke`).
     each pull in `libmpi.so.12`; RegCM5's configure also takes `nc-config`/`nf-config` from
     PATH. `scripts/setup/build_netcdf_serial.sh` builds HDF5 1.14.6, netCDF-C 4.9.2 and
     netCDF-Fortran (serial, static, plain gcc/gfortran) in `$TWCR_HOME/netcdf-serial` and
-    rebuilds RegCM5 with them and Open MPI; it stops unless `terrain`, `sst`, `icbc` and
+    rebuilds RegCM5 with them and Open MPI (on the HPC, downloads.unidata.ucar.edu failed
+    certificate verification, so the identical upstream tarballs came from the Ubuntu archive:
+    netCDF-C 4.9.2 and netCDF-Fortran 4.5.4); it stops unless `terrain`, `sst`, `icbc` and
     `regcmMPI` link no shared MPICH, netCDF or HDF5 library. Static linking leaves PATH and
     LD_LIBRARY_PATH unchanged, so WRF and WPS are not affected. Checked here end to end:
     the rebuilt preprocessors write netCDF-4 files and the 12 km model starts on 8 ranks with

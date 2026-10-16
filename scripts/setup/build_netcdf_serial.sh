@@ -94,9 +94,9 @@ NCLIBS=$("$P/bin/nc-config" --libs)
 
 # --- netCDF-Fortran (static, built by the same gfortran as RegCM5) -------------------------
 if [ ! -f "$P/lib/libnetcdff.a" ]; then
-  fetch netcdf-fortran-4.6.1.tar.gz https://downloads.unidata.ucar.edu/netcdf-fortran/4.6.1/netcdf-fortran-4.6.1.tar.gz \
+  fetch netcdf-fortran.tar.gz https://downloads.unidata.ucar.edu/netcdf-fortran/4.6.1/netcdf-fortran-4.6.1.tar.gz \
         "http://archive.ubuntu.com/ubuntu/pool/universe/n/netcdf-fortran/netcdf-fortran_4.6.0+really4.5.4+ds.orig.tar.xz"
-  d=$(unpack netcdf-fortran-4.6.1.tar.gz)
+  d=$(unpack netcdf-fortran.tar.gz)
   step "building netCDF-Fortran serial (log: $LOG/ncs_netcdf_f.log)"
   ( cd "$d" && CFLAGS="$CF" FCFLAGS="$CF" CPPFLAGS="-I$P/include" LDFLAGS="-L$P/lib" LIBS="$NCLIBS" \
         ./configure --prefix="$P" --disable-shared --enable-static \
@@ -104,7 +104,7 @@ if [ ! -f "$P/lib/libnetcdff.a" ]; then
 fi
 for f in libhdf5.a libhdf5_hl.a libnetcdf.a libnetcdff.a; do [ -f "$P/lib/$f" ] || { echo "missing $P/lib/$f"; exit 1; }; done
 ls "$P"/include/netcdf.mod > /dev/null
-step "serial netCDF ready: $("$P/bin/nc-config" --version), parallel: $("$P/bin/nc-config" --has-parallel4)"
+step "serial netCDF ready: $("$P/bin/nc-config" --version), $("$P/bin/nf-config" --version), HDF5 1.14.6, parallel: $("$P/bin/nc-config" --has-parallel4)"
 
 # --- RegCM5 with Open MPI + this netCDF ------------------------------------------------------
 step "rebuilding RegCM5 (logs: $LOG/regcm_ncs_*.log)"
