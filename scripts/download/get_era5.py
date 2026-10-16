@@ -202,6 +202,17 @@ def main(event: str) -> None:
     std["ST"] = std["ST"].transpose("time", "soil_layer", "lat", "lon")
     std["SM"] = std["SM"].transpose("time", "soil_layer", "lat", "lon")
     std["LANDSEA"] = (sl["lsm"].isel(time=0, drop=True) > 0.5).astype("float32")
+    # ERA5 soil water and snow depth have small negative values from interpolation to the
+    # 0.25 degree grid (mostly at coasts); set them to zero, stop if they are not small.
+    for v, tol in [("SM", -0.05), ("SNOW", -1.0)]:
+        vmin = float(std[v].min())
+        if vmin < 0:
+            if vmin < tol:
+                raise ValueError(f"ERA5 {v} minimum {vmin:.3g}: not an interpolation artefact")
+            neg = std[v] < 0
+            print(f"{v}: {int(neg.sum())} negative values (min {vmin:.2g}; "
+                  f"{int((neg & (std['LANDSEA'] > 0.5)).sum())} on land) set to 0", flush=True)
+            std[v] = std[v].clip(min=0.0)
     std["SOILHGT"] = (sl["z"].isel(time=0, drop=True) / G).astype("float32")
     for v in std.data_vars:
         std[v] = std[v].astype("float32")
