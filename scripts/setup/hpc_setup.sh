@@ -26,15 +26,23 @@ stage_detect() {
   done
   echo "  netCDF-Fortran $(nf-config --version 2>/dev/null) at $(nf-config --prefix 2>/dev/null)"
   if [ -z "$WRF_DIR" ]; then
-    mapfile -t cands < <(find "$HOME" -maxdepth 6 -path '*/main/wrf.exe' 2>/dev/null | grep -v -- '-ent' | sed 's#/main/wrf.exe##')
+    # plain builds first; '-ent' (modified YSU) never; '*debug*' only as a last resort
+    mapfile -t cands < <( { find "$HOME" -maxdepth 6 -path '*/main/wrf.exe' 2>/dev/null | grep -v -- '-ent' | grep -vi debug;
+                            find "$HOME" -maxdepth 6 -path '*/main/wrf.exe' 2>/dev/null | grep -v -- '-ent' | grep -i debug; } | sed 's#/main/wrf.exe##')
     echo "  WRF builds found (the '-ent' copy is excluded on purpose):"; printf '    %s\n' "${cands[@]:-none}"
     WRF_DIR=${cands[0]:-}
   fi
   if [ -z "$WPS_DIR" ]; then
-    WPS_DIR=$(find "$HOME" -maxdepth 6 -name metgrid.exe -path '*WPS*' 2>/dev/null | head -1 | xargs -r dirname)
+    # resolve symlinks (case directories link to the build) to the WPS build that has the tables
+    for m in $(find "$HOME" -maxdepth 6 -name metgrid.exe 2>/dev/null); do
+      d=$(dirname "$(readlink -f "$m")")
+      for _ in 1 2 3; do [ -f "$d/metgrid/METGRID.TBL.ARW" ] && break; d=$(dirname "$d"); done
+      if [ -f "$d/metgrid/METGRID.TBL.ARW" ] && [ -f "$d/geogrid/GEOGRID.TBL.ARW" ]; then WPS_DIR=$d; break; fi
+    done
   fi
   [ -x "$WRF_DIR/main/wrf.exe" ] && ok "WRF_DIR=$WRF_DIR" || bad "no WRF build found; set WRF_DIR in scripts/run/site.env"
-  [ -x "$WPS_DIR/metgrid.exe" ] && ok "WPS_DIR=$WPS_DIR" || bad "no WPS build found; set WPS_DIR in scripts/run/site.env"
+  [ -x "$WPS_DIR/metgrid.exe" ] && [ -f "$WPS_DIR/metgrid/METGRID.TBL.ARW" ] && ok "WPS_DIR=$WPS_DIR" || bad "no WPS build with METGRID.TBL.ARW found; set WPS_DIR in scripts/run/site.env"
+  case "$WRF_DIR" in *debug*) bad "WRF_DIR is a debug build ($WRF_DIR): set the optimised build in scripts/run/site.env";; esac
   [ -d "$WPS_GEOG" ] && ok "WPS_GEOG=$WPS_GEOG" || bad "WPS_GEOG=$WPS_GEOG missing"
   if [ -x "$WRF_DIR/main/wrf.exe" ] && strings "$WRF_DIR/main/wrf.exe" | grep -qi "chem_opt"; then
     echo "  note: this WRF build includes WRF-Chem; it runs with chem_opt = 0 (the default) here"
@@ -81,9 +89,22 @@ stage_python() {
 stage_regcm() {
   hdr "RegCM5 download and build (commit ${REGCM_COMMIT:0:7})"
   local S=$TWCR_HOME/regcm_src/RegCM
-  if [ -x "$S/bin/regcmMPI" ] && [ -x "$S/bin/icbc" ] && (cd "$S" && git apply --check -R "$REPO/patches/regcm5_fnest_z0.patch" 2>/dev/null); then
+  if [ -x "$S/bin/regcmMPI" ] && [ -x "$S/bin/icbc" ] && grep -q "call top2btm(z0)" "$S/PreProc/ICBC/mod_nest.F90" \
+     && [ "$(grep -c 'call top2btm(z0)' "$S/PreProc/ICBC/mod_nest.F90")" = 2 ]; then
     ok "already built with the FNEST patch: $S/bin"; return; fi
   mkdir -p "$TWCR_HOME/regcm_src"
+  # Preferred: the pre-configured source package (pinned commit + FNEST patch + generated
+  # configure), which needs no autotools on the node.
+  local PKG=$(ls "$TWCR_HOME"/RegCM-06a50b5-fnestfix-configured.tar.gz 2>/dev/null | head -1)
+  if [ -n "$PKG" ]; then
+    [ -d "$S" ] && [ ! -f "$S/REGCM_COMMIT" ] && mv "$S" "$S.previous.$(date +%s)"
+    [ -d "$S" ] || tar xzf "$PKG" -C "$TWCR_HOME/regcm_src"
+    ( cd "$S" && ./configure CC=gcc FC=gfortran MPIFC=mpif90 --with-netcdf="$(nf-config --prefix)" ${HDF5:+--with-hdf5=$HDF5} > "$LOG/regcm_configure.log" 2>&1 \
+      && make -j 32 > "$LOG/regcm_make.log" 2>&1 && make install > "$LOG/regcm_install.log" 2>&1 ) \
+      || { bad "RegCM build failed: tail $LOG/regcm_configure.log $LOG/regcm_make.log"; return; }
+    for e in terrain sst icbc regcmMPI; do [ -x "$S/bin/$e" ] || bad "missing $S/bin/$e"; done
+    ok "built $S/bin from $(basename "$PKG")"; return
+  fi
   [ -d "$S/.git" ] || git clone -q https://github.com/ICTP/RegCM.git "$S" || { bad "git clone RegCM failed"; return; }
   ( cd "$S" && git fetch -q origin && git checkout -q "$REGCM_COMMIT" ) || { bad "commit $REGCM_COMMIT not found"; return; }
   # Fix for the FNEST (3 km nesting) pressure bug, see docs/validation.md item 9
