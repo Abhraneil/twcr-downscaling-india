@@ -174,7 +174,7 @@ print(f'  {d.attrs[\"source\"][:40]:40s} times={d.sizes[\"time\"]} levels={d.siz
 stage_smoke() {
   hdr "RegCM5 smoke run on real E2 20CRv3 data, production grids, 24 h (about 30 min on 32 cores)"
   cd "$REPO"
-  RUNNER="$MPIRUN -np 32" OMP_NUM_THREADS=1 bash tests/integration/regcm_smoke.sh E2_mumbai2005 20CRv3 \
+  RUNNER="$REGCM_MPIRUN -np 32" OMP_NUM_THREADS=1 bash tests/integration/regcm_smoke.sh E2_mumbai2005 20CRv3 \
     "$REGCM_BIN" "$RCMDATA" "$TWCR_HOME/smoke" full > "$LOG/smoke.log" 2>&1 \
     && ok "RegCM 12 km + 3 km, 24 h each" || bad "RegCM smoke (see $LOG/smoke.log)"
   tail -12 "$LOG/smoke.log" | sed 's/^/    /'

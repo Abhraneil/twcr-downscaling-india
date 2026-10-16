@@ -10,7 +10,7 @@ check on the real 20CRv3 data (`hpc_setup.sh smoke`).
 
 | Item | Version |
 |---|---|
-| RegCM5 | github.com/ICTP/RegCM commit `06a50b5` (15 Oct 2026) plus `patches/regcm5_fnest_z0.patch` and `patches/regcm5_gfortran11_posix.patch`; built with gfortran 13.3 and 11.5, netCDF-Fortran 4.5.4, MPICH 4.2 and Open MPI |
+| RegCM5 | github.com/ICTP/RegCM commit `06a50b5` (15 Oct 2026) plus `patches/regcm5_fnest_z0.patch` and `patches/regcm5_gfortran11_posix.patch`; built with gfortran 13.3 and 11.5, netCDF-Fortran 4.5.4, MPICH 4.2 and Open MPI 4.1.6; on the HPC with gfortran 11.4 and Open MPI 4.1.6 (`build_openmpi.sh`) |
 | WRF namelist keys | checked against the Registry of WRF v4.5 and current master |
 | WPS | intermediate reader `util/rd_intermediate.F` compiled from WPS master (6 Jul 2026), big-endian, 4-byte record markers |
 
@@ -112,6 +112,16 @@ check on the real 20CRv3 data (`hpc_setup.sh smoke`).
 16. **ERA5 specific humidity has small negative values** (min -6.8e-6 kg/kg in the E2 box),
     which failed the -1e-6 bound in `check_standard`. `get_era5.py` sets negative q to zero and
     logs how many; a minimum below -1e-4 kg/kg still stops it.
+17. **RegCM5 aborts at start-up on the HPC: `MPI_Scatterv ... Negative count`** (12 km, 32
+    ranks). The same grid and rank count (8 x 4) run correctly here with Open MPI, so the
+    decomposition is fine. `tests/integration/mpi_f08_check.f90` repeats RegCM5's own
+    gather-then-scatter through `mpi_f08`: with the HPC's MPICH 4.0.3 + gfortran 11.4 the
+    gathered windows were wrong on 4 of 4 and 32 of 32 ranks. WRF uses the older `mpi`
+    interface and is unaffected. `scripts/setup/build_openmpi.sh` builds Open MPI 4.1.6 with
+    the same gfortran, runs the check (must print `MPI f08 OK` at 4 and 32 ranks), rebuilds
+    RegCM5 against it and verifies it links `libmpi_usempif08.so.40` and no MPICH library;
+    `env.sh` then launches RegCM5 with that Open MPI (`--bind-to none`, so the concurrent
+    WRF lanes are not pinned to the same cores) while WRF and WPS keep MPICH.
 
 ## Measured cost
 

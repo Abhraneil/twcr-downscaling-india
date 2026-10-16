@@ -27,7 +27,7 @@ run_one() {
   done
   regcm_check_prep "$D" "${EV}_${DRV}_${RES}" "$RES" || { echo "RegCM $RES preprocessing failed in $D"; exit 1; }
   local start=$(date +%s)
-  $MPIRUN -np "$NPROCS" "$REGCM_BIN/regcmMPI" regcm.in > regcm.log 2>&1 || true
+  $REGCM_MPIRUN -np "$NPROCS" "$REGCM_BIN/regcmMPI" regcm.in > regcm.log 2>&1 || true
   grep -aq "RegCM V5 simulation successfully reached end" regcm.log || {
     echo "RegCM $RES failed, see $D/regcm.log"; strings regcm.log | tail -20; exit 1; }
   echo "wall_seconds=$(( $(date +%s) - start )) nprocs=$NPROCS" > timing.txt
