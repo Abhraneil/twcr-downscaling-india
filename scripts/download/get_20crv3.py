@@ -122,19 +122,57 @@ def validate(da: xr.DataArray, name: str) -> str | None:
     return None
 
 
-def load_checked(da: xr.DataArray, name: str, retries: int = 5) -> xr.DataArray:
+def _attempts(da: xr.DataArray, name: str, retries: int, label: str):
+    """Read `da` up to `retries` times; return (data, None) or (last data or None, reason)."""
+    out = None
     for k in range(retries):
         try:
             out = da.compute()                    # leaves `da` lazy, so a retry re-reads
             why = validate(out, name)
         except (RuntimeError, OSError) as err:
-            why = f"transfer error: {err}"
+            out, why = None, f"transfer error: {err}"
         if why is None:
-            return out
-        print(f"  {name}: {why}; retry {k + 1}/{retries - 1}" if k < retries - 1 else f"  {name}: {why}", flush=True)
+            return out, None
+        print(f"  {label}: {why}" + (f"; retry {k + 1}/{retries - 1}" if k < retries - 1 else ""), flush=True)
         if k < retries - 1:
-            time.sleep(15 * (k + 1))
-    raise RuntimeError(f"{name}: no valid transfer after {retries} attempts")
+            time.sleep(10 * (k + 1))
+    return out, why
+
+
+def where_missing(a: xr.DataArray | None) -> str:
+    """Which times / levels hold the missing values (to tell a broken transfer from a data gap)."""
+    if a is None or not a.isnull().any():
+        return ""
+    m = a.isnull()
+    out = []
+    for d in [d for d in a.dims if d not in ("lat", "lon")]:
+        hit = a[d].values[m.any([x for x in a.dims if x != d]).values]
+        vals = [str(v)[:13] for v in hit] if d == "time" else hit.tolist()
+        out.append(f"{d}: {vals[:12]}{' ...' if len(vals) > 12 else ''}")
+    return "missing at " + "; ".join(out)
+
+
+def load_checked(da: xr.DataArray, name: str, retries: int = 5, chunk: int = 8) -> xr.DataArray:
+    """One request for the whole field; if that fails twice, one request per `chunk` time
+    steps (one day), each checked and retried on its own. Large OPeNDAP responses from PSL
+    are sometimes cut short repeatedly, while small ones come through."""
+    out, why = _attempts(da, name, 2, name)
+    if why is None:
+        return out
+    if "time" not in da.dims or da.sizes["time"] <= chunk:
+        raise RuntimeError(f"{name}: no valid transfer ({why}); {where_missing(out)}")
+    print(f"  {name}: switching to requests of {chunk} time steps", flush=True)
+    parts = []
+    for i in range(0, da.sizes["time"], chunk):
+        piece = da.isel(time=slice(i, i + chunk))
+        t = piece["time"].values
+        label = f"{name} {str(t[0])[:13]}..{str(t[-1])[:13]}"
+        got, why = _attempts(piece, name, retries, label)
+        if why is not None:
+            raise RuntimeError(f"{label}: no valid transfer after {retries} attempts ({why}); {where_missing(got)}")
+        parts.append(got)
+    print(f"  {name}: all {len(parts)} pieces valid", flush=True)
+    return xr.concat(parts, dim="time")
 
 
 def subset(da: xr.DataArray, t0=None, t1=None, name: str | None = None) -> xr.DataArray:

@@ -178,6 +178,14 @@ def main(event: str) -> None:
     pl = pl.assign_coords(plev=pl["plev"].values * 100.0).sortby("plev", ascending=False)
     for a, b in [("T", "t"), ("Q", "q"), ("U", "u"), ("V", "v")]:
         std[a] = pl[b].astype("float32")
+    # ERA5 specific humidity has small negative values (a numerical artefact of the
+    # analysis, ~1e-6 kg/kg); set them to zero. Anything far below zero is a real problem.
+    qmin = float(std["Q"].min())
+    if qmin < 0:
+        if qmin < -1e-4:
+            raise ValueError(f"ERA5 Q minimum {qmin:.3e} kg/kg: not a rounding artefact")
+        print(f"Q: {int((std['Q'] < 0).sum())} negative values (min {qmin:.2e} kg/kg) set to 0", flush=True)
+        std["Q"] = std["Q"].clip(min=0.0)
     std["Z"] = (pl["z"] / G).astype("float32")
     std["PSFC"], std["PMSL"] = sl["sp"], sl["msl"]
     std["T2"], std["U10"], std["V10"] = sl["t2m"], sl["u10"], sl["v10"]
