@@ -37,7 +37,11 @@ tprof = (300.0 * (lev / 1000.0) ** 0.19).clip(195, None)
 zprof = 7400.0 * np.log(1006.0 / lev)
 put("prs", f"air.{year}.nc", "air", np.broadcast_to(tprof[None, :, None, None], (nt, 28, 181, 360)), ("time", "level", "lat", "lon"), c3)
 put("prs", f"hgt.{year}.nc", "hgt", np.broadcast_to(zprof[None, :, None, None], (nt, 28, 181, 360)), ("time", "level", "lat", "lon"), c3)
-put("prs", f"shum.{year}.nc", "shum", np.full((nt, 28, 181, 360), 0.008), ("time", "level", "lat", "lon"), c3)
+# like the real files: specific humidity only on the 21 levels from 1000 to 100 hPa
+lq = lev[lev >= 100]
+qprof = (0.016 * (lq / 1000.0) ** 3).clip(3e-6, None)
+put("prs", f"shum.{year}.nc", "shum", np.broadcast_to(qprof[None, :, None, None], (nt, lq.size, 181, 360)), ("time", "level", "lat", "lon"),
+    {"time": time, "level": ("level", lq, {"units": "millibar"}), "lat": lat, "lon": lon})
 put("prs", f"rhum.{year}.nc", "rhum", np.full((nt, 28, 181, 360), 70.0), ("time", "level", "lat", "lon"), c3)
 put("prs", f"uwnd.{year}.nc", "uwnd", np.full((nt, 28, 181, 360), 8.0), ("time", "level", "lat", "lon"), c3)
 put("prs", f"vwnd.{year}.nc", "vwnd", np.full((nt, 28, 181, 360), 1.0), ("time", "level", "lat", "lon"), c3)
