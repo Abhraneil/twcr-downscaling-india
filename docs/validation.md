@@ -122,6 +122,17 @@ check on the real 20CRv3 data (`hpc_setup.sh smoke`).
     RegCM5 against it and verifies it links `libmpi_usempif08.so.40` and no MPICH library;
     `env.sh` then launches RegCM5 with that Open MPI (`--bind-to none`, so the concurrent
     WRF lanes are not pinned to the same cores) while WRF and WPS keep MPICH.
+18. **RegCM5 rebuilt with Open MPI still loaded MPICH** (`build_openmpi.sh` stopped on its
+    linkage check). The netCDF 4.9.0 and HDF5 in `~/WRFCHEM/libraries` were built with MPICH's
+    `mpicc`/`mpifort` (parallel I/O), so `libnetcdff`, `libnetcdf`, `libhdf5` and `libhdf5_hl`
+    each pull in `libmpi.so.12`; RegCM5's configure also takes `nc-config`/`nf-config` from
+    PATH. `scripts/setup/build_netcdf_serial.sh` builds HDF5 1.14.6, netCDF-C 4.9.2 and
+    netCDF-Fortran (serial, static, plain gcc/gfortran) in `$TWCR_HOME/netcdf-serial` and
+    rebuilds RegCM5 with them and Open MPI; it stops unless `terrain`, `sst`, `icbc` and
+    `regcmMPI` link no shared MPICH, netCDF or HDF5 library. Static linking leaves PATH and
+    LD_LIBRARY_PATH unchanged, so WRF and WPS are not affected. Checked here end to end:
+    the rebuilt preprocessors write netCDF-4 files and the 12 km model starts on 8 ranks with
+    the same surface-pressure range (862.76-1006.49 hPa) as the earlier build.
 
 ## Measured cost
 
