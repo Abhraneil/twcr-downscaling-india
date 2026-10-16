@@ -204,7 +204,7 @@ def wrf_namelist(cfg, ev_name, ev, driver):
             ("khdif", two(0, 0)), ("kvdif", two(0, 0)),
             ("non_hydrostatic", ".true., .true."),
             ("moist_adv_opt", two(1, 1)), ("scalar_adv_opt", two(1, 1)),
-            ("gwd_opt", two(1, 0)),
+            ("gwd_opt", two(0, 0)),                 # no orographic GWD (RegCM5 has none either)
         ]),
         ("bdy_control", [
             ("spec_bdy_width", 5), ("specified", ".true., .false."),

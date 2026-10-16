@@ -1,93 +1,98 @@
-# Runbook and schedule
+# Runbook
 
-Deadlines: **repository public on Saturday 24 October 2026**, **write-up on Monday 26 October**.
-The whole run matrix needs 13-26 node-hours on one 64-core node (`docs/budget.md`),
-so compute is not the constraint; data access, the RegCM5 build and reruns are.
+Deadlines: repository public **Saturday 24 October 2026**, write-up **Monday 26 October**.
 
-## Schedule
-
-| Day | Work | Done when |
-|---|---|---|
-| Fri 16 Oct | Push this repository (private). Build RegCM5 on the HPC. Start downloads: IMD, 20CRv3 (both events), ERA5 (CDS queue can take hours), RegCM static data. | `check_imd_convention.py` passes; three files in `data/drivers/` |
-| Sat 17 Oct | WPS for the three driver cases. **1-day WRF benchmark** (step 5), update `COST_*` in `scripts/budget.py`. Launch WRF E2-ERA5. | E2-ERA5 `wrf.exe` SUCCESS |
-| Sun 18 Oct | WRF E2-20CRv3 and E1-20CRv3. RegCM5 12 km for all three cases. | 3 WRF + 3 RegCM 12 km complete |
-| Mon 19 Oct | RegCM5 3 km for all three cases. | 9 of 9 runs complete |
-| Tue 20 Oct | Extract, score, plot. Sanity checks (step 8). | `results/SCORECARD.md`, `HYPOTHESES.md` |
-| Wed 21 Oct | Buffer for reruns (CFL, RegCM boundary issues). | |
-| Thu 22 Oct | Freeze results. Upload daily fields + inputs needed to reproduce to Zenodo (DOI). | DOI in README |
-| Fri 23 Oct | README results section, CI green, tag `v1.0`. | |
-| Sat 24 Oct | Make the repository public. | **deadline** |
-| Sun 25 - Mon 26 Oct | Write-up from `docs/writeup_outline.md`. | **deadline** |
-
-## Steps
+## Tonight (Friday 16 October): setup, downloads, smoke test, WPS
 
 ```bash
-# 0. once
-git clone <repo> && cd twcr-downscaling-india
-conda env create -f environment.yml && conda activate twcr
-$EDITOR scripts/run/env.sh              # WPS_DIR, WRF_DIR, REGCM_BIN, RCMDATA, RUN_ROOT
-source scripts/run/env.sh
-echo "url: https://cds.climate.copernicus.eu/api
-key: <your-key>" > ~/.cdsapirc
+# 1. copy the repository to the HPC and unpack it
+mkdir -p ~/TWCR && cd ~/TWCR
+#    (from your laptop)  scp twcr-downscaling-india.tar.gz <you>@<hpc>:~/TWCR/
+tar xzf twcr-downscaling-india.tar.gz && cd twcr-downscaling-india
 
-# 1. RegCM5 build (MPI + netCDF; MPICH as on the node)
-git clone https://github.com/ICTP/RegCM.git $HOME/RegCM && cd $HOME/RegCM
-./bootstrap.sh && ./configure && make -j 16 && make install     # installs into $HOME/RegCM/bin
-cd -
-
-# 2. observations and drivers
-python scripts/download/get_imd.py 1924 2005
-python scripts/scoring/check_imd_convention.py           # must exit 0
-python scripts/download/get_20crv3.py E1_kerala1924
-python scripts/download/get_20crv3.py E2_mumbai2005
-python scripts/download/get_era5.py   E2_mumbai2005
-bash   scripts/download/get_regcm_static.sh
-
-# 3. WPS (geogrid, intermediate files checked with rd_intermediate.exe, metgrid)
-bash scripts/run/run_wps.sh E2_mumbai2005 ERA5
-
-# 4. WRF
-bash scripts/run/run_wrf.sh E2_mumbai2005 ERA5
-
-# 5. benchmark first: run 24 h only, read timing.txt, put the measured
-#    core-seconds per point-level-step into scripts/budget.py and re-run it
-#    (edit run_hours = 24 in the run directory's namelist.input for this one test)
-
-# 6. RegCM5 (12 km from the reanalysis, then 3 km nested)
-bash scripts/run/run_regcm.sh E2_mumbai2005 ERA5 both
-
-# 7. repeat 3, 4, 6 for E2_mumbai2005 20CRv3 and E1_kerala1924 20CRv3
-#    (or run everything: bash scripts/run/run_all.sh)
-
-# 8. scoring
-python scripts/postprocess/extract_precip.py E1_kerala1924 --runs-root $RUN_ROOT
-python scripts/postprocess/extract_precip.py E2_mumbai2005 --runs-root $RUN_ROOT
-python scripts/scoring/score_all.py
-python scripts/scoring/plot_event.py
+# 2. run the overnight setup inside tmux so it survives a dropped connection
+tmux new -s twcr
+bash scripts/setup/hpc_setup.sh 2>&1 | tee ~/TWCR/setup.log
+#    detach: Ctrl-b d      re-attach: tmux attach -t twcr
 ```
 
-## Sanity checks before trusting a score (step 8)
+What `hpc_setup.sh` does, in order (each stage can be re-run by name, e.g.
+`bash scripts/setup/hpc_setup.sh download check`):
 
-1. The driver files pass `check_standard` (the download scripts call it): ranges, units,
-   regular grid, Pa levels.
-2. `rd_intermediate.exe` reads the first intermediate file (`run_wps.sh` stops otherwise).
-3. 12 km MSLP at the event peak looks like the driver's (no drift without nudging);
-   compare `wrfout_d01` / RegCM ATM `psl` with the driver PMSL in ncview.
-4. Driver rainfall (`DRIVER_*`) totals are of the right order compared with IMD; a
-   driver baseline off by a factor of 3 or 8 means a time-window or unit error.
-5. `pytest -q` passes.
+| Stage | What | Time |
+|---|---|---|
+| `detect` | loads `~/WRFCHEM/scripts/env_wrfchem.sh`, finds the plain WRF 4.5 and WPS builds (skips the `-ent` copy), writes `scripts/run/site.env` | 1 min |
+| `reach` | which data servers the node can reach; `~/.cdsapirc` present | 1 min |
+| `python` | `~/TWCR/venv` (conda if present, else venv) and `pytest` | 5 min |
+| `regcm` | clones RegCM5, checks out the tested commit `06a50b5`, builds with the WRF toolchain (MPICH, gfortran, netCDF) | 10 min |
+| `download` | ERA5 (CDS queue), 20CRv3 for both events (OPeNDAP subsets), IMD 1924 + 2005, RegCM static data (about 4 GB): all in parallel | 15 min to a few hours (CDS queue) |
+| `check` | IMD date convention, every driver file against physical ranges, conversion to WPS intermediate (read back with `rd_intermediate.exe`) and to RegCM input | 5 min |
+| `smoke` | RegCM5 12 km + 3 km for 24 h on the real E2 20CRv3 driver, production grids, 32 ranks | 30 min |
+| `wps` | geogrid + metgrid for all three cases, so `met_em` files are ready in the morning | 30-60 min |
 
-## Known failure modes
+It ends with `SETUP COMPLETE` or a list of what failed. Logs: `~/TWCR/logs/`.
 
-- **WRF CFL errors** (`cfl` in `rsl.error.*`, NaN): in `scripts/generate_namelists.py`
-  change `time_step` from `5 * dx` to `4 * dx` (48 s), regenerate the namelists, rerun.
-- **RegCM5 MOLOCH instability at 3 km**: lower `dt` from 30 to 24 s in
-  `generate_namelists.py`, regenerate, rerun.
-- **OPeNDAP timeouts at PSL**: the script retries four times; if it still fails, download
-  the whole yearly files from the THREDDS `fileServer` URL printed in the error and
-  point `open_remote` at the local copies (about 36 GB per year).
-- **CDS queue**: submit the ERA5 request first thing; it is the slowest download.
+**If a server is unreachable from the HPC** (`reach` says so):
+- psl.noaa.gov: run `python scripts/download/get_20crv3.py <event>` on any machine that
+  can reach it (transfers ~50 MB) and copy `data/drivers/<event>_20CRv3*.nc` to the same
+  place on the HPC.
+- clima-dods.ictp.it: run `scripts/download/get_regcm_static.sh` elsewhere and copy
+  `~/TWCR/RCMDATA/` across (about 4 GB).
+- imdpune.gov.in: download `Rainfall_ind1924_rfp25.grd` and `Rainfall_ind2005_rfp25.grd`
+  from https://www.imdpune.gov.in/cmpg/Griddata/Rainfall_25_Bin.html into `data/raw/imd/`.
+
+## Tomorrow (Saturday 17 October): launch all nine runs
+
+```bash
+cd ~/TWCR/twcr-downscaling-india
+bash scripts/run/launch_all.sh        # four lanes in the background, returns immediately
+bash scripts/run/status.sh            # model time reached, % done, ETA for every run
+```
+
+| Lane | Ranks | Runs | Estimated wall time |
+|---|---|---|---|
+| `wrf_E1` | 20 | WRF E1 1924 20CRv3 | 13-25 h |
+| `wrf_E2_era5` | 12 | WRF E2 2005 ERA5 | 14-28 h |
+| `wrf_E2_20cr` | 12 | WRF E2 2005 20CRv3 | 14-28 h |
+| `regcm` | 20 | RegCM5 12+3 km for E2 ERA5, E2 20CRv3, E1 20CRv3 | 13-27 h |
+
+Check `status.sh` 15 minutes after launch: every WRF run should have passed `real.exe`
+and be advancing; the RegCM lane should be in the 12 km E2 ERA5 run. Each finished run
+writes `timing.txt`; put the measured cost into `COST_LO/COST_HI` in `scripts/budget.py`
+for the write-up.
+
+## When the runs finish (Sunday 18 - Tuesday 20 October): score
+
+```bash
+source scripts/run/env.sh
+for EV in E1_kerala1924 E2_mumbai2005; do
+  $PYTHON scripts/postprocess/extract_precip.py $EV --runs-root $RUN_ROOT
+done
+$PYTHON scripts/scoring/score_all.py        # results/scores.csv, SCORECARD.md, HYPOTHESES.md
+$PYTHON scripts/scoring/plot_event.py       # results/figures/
+```
+
+## Remaining schedule
+
+| Day | Work |
+|---|---|
+| Wed 21 Oct | buffer for reruns |
+| Thu 22 Oct | freeze results; daily fields + driver subsets to Zenodo |
+| Fri 23 Oct | README results section, CI green, tag `v1.0` |
+| Sat 24 Oct | repository public |
+| Sun 25 - Mon 26 Oct | write-up (`docs/writeup_outline.md`) |
+
+## Failure handling
 
 Every change to physics or time step goes through `config/experiment.yaml` or
-`scripts/generate_namelists.py`, never by editing a namelist in a run directory, so the
-repository always holds what was actually run.
+`scripts/generate_namelists.py` and `python scripts/generate_namelists.py`, never by
+editing a namelist inside a run directory, so the repository always holds what ran.
+
+| Symptom | Fix |
+|---|---|
+| WRF `cfl` errors or NaN in `rsl.error.*` | `time_step` from `5 * dx` to `4 * dx` in `generate_namelists.py`, regenerate, rerun that case |
+| RegCM 3 km aborts with instability | `dt` from 30 to 24 s for `03km` in `generate_namelists.py`, regenerate, rerun |
+| RegCM `Runtime increments must be modulus 24 hours` | run length must be whole days (the config and a test enforce this) |
+| `real.exe` complains about missing soil levels | check `num_metgrid_soil_levels = 4` and that the driver file has ST/SM |
+| OPeNDAP timeouts at PSL | re-run the download stage (it retries); or use `TWCR_20CR_LOCAL` with whole yearly files (see `get_20crv3.py`) |
+| CDS request queued for hours | leave it; `get_era5.py` resumes and skips files already downloaded |

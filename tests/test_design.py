@@ -54,6 +54,8 @@ def test_scoring_windows_inside_simulation_after_spinup(ev_name):
     assert w1 <= s1
     assert w0.hour == 3                                   # 08:30 IST
     assert s0.month == s1.month                           # RegCM driver files are monthly
+    assert (s1 - s0).total_seconds() % 86400 == 0         # RegCM5 aborts unless the run is whole days
+    assert s0.hour == 0
 
 
 def test_wrf_namelist_matches_config():

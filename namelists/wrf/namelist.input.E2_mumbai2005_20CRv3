@@ -3,7 +3,7 @@
 ! NUM_METGRID_LEVELS is filled from the met_em files by scripts/run/run_wrf.sh.
  &time_control
  run_days                         = 0,
- run_hours                        = 126,
+ run_hours                        = 144,
  run_minutes                      = 0,
  run_seconds                      = 0,
  start_year                       = 2005, 2005,
@@ -12,8 +12,8 @@
  start_hour                       = 00, 00,
  end_year                         = 2005, 2005,
  end_month                        = 07, 07,
- end_day                          = 29, 29,
- end_hour                         = 06, 06,
+ end_day                          = 30, 30,
+ end_hour                         = 00, 00,
  interval_seconds                 = 10800,
  input_from_file                  = .true., .true.,
  history_interval                 = 60, 60,
@@ -94,7 +94,7 @@
  non_hydrostatic                  = .true., .true.,
  moist_adv_opt                    = 1, 1,
  scalar_adv_opt                   = 1, 1,
- gwd_opt                          = 1, 0,
+ gwd_opt                          = 0, 0,
  /
 
  &bdy_control

@@ -46,6 +46,22 @@ def request(tt):
     }
 
 
+def open_cds(path: Path) -> xr.Dataset:
+    """Open a CDS download; new CDS may deliver a zip of several netCDF files."""
+    with open(path, "rb") as fh:
+        magic = fh.read(2)
+    if magic != b"PK":
+        return xr.open_dataset(path)
+    import zipfile
+    dest = path.with_suffix(".unzipped")
+    with zipfile.ZipFile(path) as z:
+        z.extractall(dest)
+    parts = [xr.open_dataset(f) for f in sorted(dest.glob("*.nc"))]
+    if not parts:
+        raise RuntimeError(f"{path} is a zip without netCDF members")
+    return xr.merge(parts, compat="override", join="exact")
+
+
 def norm(ds):
     ren = {}
     for a, b in [("valid_time", "time"), ("latitude", "lat"), ("longitude", "lon"),
@@ -70,26 +86,30 @@ def main(event: str) -> None:
     raw = DATA / "raw" / "era5"
     raw.mkdir(parents=True, exist_ok=True)
     fpl, fsl = raw / f"{event}_pl.nc", raw / f"{event}_sl.nc"
-    c = cdsapi.Client()
+    _c = []
+    def c_retrieve(*args):                      # client created only if something must be fetched
+        if not _c:
+            _c.append(cdsapi.Client())
+        _c[0].retrieve(*args)
     if not fpl.exists():
         r = request(tt) | {"variable": PL_VARS, "pressure_level": [str(p) for p in PLEVS]}
-        c.retrieve("reanalysis-era5-pressure-levels", r, str(fpl))
+        c_retrieve("reanalysis-era5-pressure-levels", r, str(fpl))
     if not fsl.exists():
-        c.retrieve("reanalysis-era5-single-levels", request(tt) | {"variable": SL_VARS}, str(fsl))
+        c_retrieve("reanalysis-era5-single-levels", request(tt) | {"variable": SL_VARS}, str(fsl))
     ftp = raw / f"{event}_tp.nc"
     if not ftp.exists():
         r = request(tt) | {"variable": ["total_precipitation"], "time": [f"{h:02d}:00" for h in range(24)]}
         days = sorted({t.strftime("%d") for t in tt} | {(tt[-1] + timedelta(days=1)).strftime("%d")})
         r["day"] = days
-        c.retrieve("reanalysis-era5-single-levels", r, str(ftp))
-    tp = norm(xr.open_dataset(ftp))["tp"]
+        c_retrieve("reanalysis-era5-single-levels", r, str(ftp))
+    tp = norm(open_cds(ftp))["tp"]
     # ERA5 tp at time t is the accumulation over the hour ending at t (m) -> rate
     prf = driver_file(event, "ERA5").with_name(f"{event}_ERA5_precip.nc")
     prf.parent.mkdir(parents=True, exist_ok=True)
     xr.Dataset({"pr": (tp * 1000.0 / 3600.0).astype("float32")}).assign_attrs(
         units="kg m-2 s-1", interval_hours=1,
         convention="value at time t = mean rate over the hour ending at t").to_netcdf(prf)
-    pl, sl = norm(xr.open_dataset(fpl)), norm(xr.open_dataset(fsl))
+    pl, sl = norm(open_cds(fpl)), norm(open_cds(fsl))
     tsel = np.array(tt, dtype="datetime64[ns]")
     pl, sl = pl.sel(time=tsel), sl.sel(time=tsel)
 

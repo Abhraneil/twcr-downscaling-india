@@ -4,16 +4,16 @@
 
 | Model | Event | Driver | Sim h | Core-hours | Wall h (64 cores) | Raw output GB |
 |---|---|---|---|---|---|---|
-| WRF 12+3 km | E1_kerala1924 | 20CRv3 | 198 | 196-393 | 3.8-7.7 | 64.8 |
-| RegCM5 12 km | E1_kerala1924 | 20CRv3 | 198 | 17-35 | 0.3-0.7 | 6.9 |
-| RegCM5 3 km | E1_kerala1924 | 20CRv3 | 198 | 77-155 | 1.5-3.0 | 8.6 |
-| WRF 12+3 km | E2_mumbai2005 | 20CRv3 | 126 | 125-250 | 2.4-4.9 | 41.4 |
-| RegCM5 12 km | E2_mumbai2005 | 20CRv3 | 126 | 11-22 | 0.2-0.4 | 4.4 |
-| RegCM5 3 km | E2_mumbai2005 | 20CRv3 | 126 | 49-98 | 1.0-1.9 | 5.5 |
-| WRF 12+3 km | E2_mumbai2005 | ERA5 | 126 | 125-250 | 2.4-4.9 | 41.4 |
-| RegCM5 12 km | E2_mumbai2005 | ERA5 | 126 | 11-22 | 0.2-0.4 | 4.4 |
-| RegCM5 3 km | E2_mumbai2005 | ERA5 | 126 | 49-98 | 1.0-1.9 | 5.5 |
-| **Total** | 9 runs |  |  | **662-1,323** | **13-26** | **183** |
+| WRF 12+3 km | E1_kerala1924 | 20CRv3 | 216 | 214-429 | 4.2-8.4 | 70.7 |
+| RegCM5 12 km | E1_kerala1924 | 20CRv3 | 216 | 19-38 | 0.4-0.7 | 7.5 |
+| RegCM5 3 km | E1_kerala1924 | 20CRv3 | 216 | 84-169 | 1.6-3.3 | 9.4 |
+| WRF 12+3 km | E2_mumbai2005 | 20CRv3 | 144 | 143-286 | 2.8-5.6 | 47.2 |
+| RegCM5 12 km | E2_mumbai2005 | 20CRv3 | 144 | 13-25 | 0.2-0.5 | 5.0 |
+| RegCM5 3 km | E2_mumbai2005 | 20CRv3 | 144 | 56-112 | 1.1-2.2 | 6.3 |
+| WRF 12+3 km | E2_mumbai2005 | ERA5 | 144 | 143-286 | 2.8-5.6 | 47.2 |
+| RegCM5 12 km | E2_mumbai2005 | ERA5 | 144 | 13-25 | 0.2-0.5 | 5.0 |
+| RegCM5 3 km | E2_mumbai2005 | ERA5 | 144 | 56-112 | 1.1-2.2 | 6.3 |
+| **Total** | 9 runs |  |  | **741-1,482** | **14-29** | **205** |
 
 Cost model: 4-8 us per point-level-step, 80% parallel efficiency on one 64-core node. Output is uncompressed netCDF; netCDF-4 deflate typically halves it.
 
@@ -21,9 +21,9 @@ Cost model: 4-8 us per point-level-step, 80% parallel efficiency on one 64-core 
 
 | Item | GB |
 |---|---|
-| 20CRv3 regional subsets (OPeNDAP, both events) | 0.10 |
+| 20CRv3 regional subsets (OPeNDAP, both events) | 0.11 |
 | 20CRv3 whole annual global files, if subsetting fails (1924 + 2005) | 72.00 |
-| ERA5 regional subset (2005, 37 levels, 3-hourly) | 0.79 |
+| ERA5 regional subset (2005, 37 levels, 3-hourly) | 0.90 |
 | IMD 0.25 deg rainfall (1924, 2005) | 0.05 |
 | WPS static geography (already on the HPC) | 29.00 |
 | RegCM5 static surface data (GMTED, land use, texture) | 15.00 |
@@ -32,9 +32,9 @@ Cost model: 4-8 us per point-level-step, 80% parallel efficiency on one 64-core 
 
 | Tier | GB | GCS Standard / month | GCS Coldline / month | GCS Archive / month |
 |---|---|---|---|---|
-| Working set on the HPC during the runs | 227.8 | $4.24 | $0.85 | $0.25 |
-| Archive: raw model output | 182.9 | $3.41 | $0.68 | $0.20 |
-| Archive: inputs needed to reproduce (driver subsets + IMD) | 0.9 | $0.02 | $0.00 | $0.00 |
+| Working set on the HPC during the runs | 249.7 | $4.65 | $0.93 | $0.28 |
+| Archive: raw model output | 204.6 | $3.81 | $0.76 | $0.23 |
+| Archive: inputs needed to reproduce (driver subsets + IMD) | 1.1 | $0.02 | $0.00 | $0.00 |
 | Published: derived precipitation + scores (Zenodo) | 0.5 | $0.01 | $0.00 | $0.00 |
 | GitHub repository (code, namelists, scores, figures) | 0.1 | $0.00 | $0.00 | $0.00 |
 

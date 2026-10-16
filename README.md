@@ -18,9 +18,10 @@ metrics, against criteria written down before any run (`docs/metrics.md`).
 
 | Step | State |
 |---|---|
-| Design, domains, namelists, scoring code | done; namelist keys checked against WRF v4.5 / master and RegCM5 sources; 20 tests pass |
-| Data download | to do (scripts ready) |
-| Model runs | to do |
+| Design, domains, namelists, scoring code | done; namelist keys checked against WRF v4.5 / master and RegCM5 sources |
+| Pipeline validation | RegCM5 built and run on converted driver files; WPS reader accepts the intermediate files (`docs/validation.md`) |
+| Data download and setup | `scripts/setup/hpc_setup.sh` (overnight, 16 Oct) |
+| Model runs | `scripts/run/launch_all.sh` (17 Oct), progress with `scripts/run/status.sh` |
 | Scores and figures | to do: `results/` fills from `scripts/scoring/score_all.py` |
 
 ## Repository
@@ -49,8 +50,9 @@ results/                      scores.csv, SCORECARD.md, HYPOTHESES.md, figures/ 
 ```bash
 conda env create -f environment.yml && conda activate twcr
 pytest -q                                     # checks the code before any run
-$EDITOR scripts/run/env.sh && source scripts/run/env.sh
-bash scripts/run/run_all.sh                   # data -> WPS/WRF -> RegCM5 -> scores -> figures
+bash scripts/setup/hpc_setup.sh               # build RegCM5, download data, checks, smoke test, WPS
+bash scripts/run/launch_all.sh                # nine runs in four lanes on one 64-core node
+bash scripts/run/status.sh                    # progress
 ```
 
 Step-by-step commands, the schedule and failure handling are in `docs/runbook.md`.
@@ -72,7 +74,7 @@ Step-by-step commands, the schedule and failure handling are in `docs/runbook.md
 
 ## Budget
 
-13-26 node-hours on one 64-core node for all nine runs, about 183 GB of raw output,
+15-29 node-hours on one 64-core node for all nine runs, about 205 GB of raw output,
 under 1 GB of inputs needed to reproduce. Details and storage costs: `docs/budget.md`.
 
 ## Data and credits

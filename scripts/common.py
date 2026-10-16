@@ -1,6 +1,7 @@
 """Shared helpers: configuration, the standardised driver format, thermodynamics."""
 from __future__ import annotations
 
+import os
 from datetime import datetime, timedelta
 from pathlib import Path
 
@@ -8,7 +9,7 @@ import numpy as np
 import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
-DATA = ROOT / "data"
+DATA = Path(os.environ.get("TWCR_DATA", ROOT / "data"))   # override for tests / scratch disks
 
 # Spatial box for driver subsets: covers the 12 km domain (1.8-27.5N, 60.9-91.1E)
 # with a 4-5 degree margin for horizontal interpolation.
