@@ -76,8 +76,14 @@ def check_standard(ds) -> None:
         raise ValueError("lon must be regular")
     if ds["plev"].values.max() < 90000:
         raise ValueError("plev must be in Pa")
+    # fields the models read everywhere in the box: a single missing value is a broken transfer
+    for v in STD_3D + ["PSFC", "PMSL", "T2", "Q2", "U10", "V10", "SKT", "SST", "LANDSEA", "SOILHGT"]:
+        n = int((~np.isfinite(ds[v].values)).sum())
+        if n:
+            raise ValueError(f"{v} has {n} missing values")
     for v, lo, hi in [("T", 150, 340), ("Q", -1e-6, 0.05), ("PSFC", 4e4, 1.1e5),
-                      ("PMSL", 8.5e4, 1.1e5), ("T2", 180, 340), ("SM", 0, 1.0)]:
+                      ("PMSL", 8.5e4, 1.1e5), ("T2", 180, 340), ("SM", 0, 1.0),
+                      ("Z", -1000, 60000), ("U", -150, 150), ("V", -150, 150), ("SKT", 180, 350)]:
         a = ds[v].values
         a = a[np.isfinite(a)]
         if a.size and (a.min() < lo or a.max() > hi):

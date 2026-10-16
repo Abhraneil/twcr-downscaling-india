@@ -79,6 +79,20 @@ check on the real 20CRv3 data (`hpc_setup.sh smoke`).
     11 static files (2.6 GB: GMTED 235 MB, GLCC 22 MB, GLZB 3 MB, GHG 5 x 4-20 MB, ozone
     1.7 GB + 514 MB, solar 61 MB) were fetched on a laptop with
     `scripts/download/get_regcm_static_windows.ps1` and copied with `scp`.
+12. **CDS rejects the ERA5 pressure-level request as too large** (`403 ... cost limits
+    exceeded`): 5 variables x 37 levels x 7 days x 8 times in one request. `get_era5.py` now
+    asks for one variable per request and, if CDS still refuses, halves the day list;
+    downloads go to `.part` files first, so an interrupted request never leaves a file that
+    looks complete. Tested offline against a fake CDS that rejects requests the same way:
+    17 requests, and the driver built from the pieces is identical (difference 0.0) to the
+    one built from a single request.
+13. **A 20CRv3 OPeNDAP transfer can be cut short without an exception**
+    (`ERR: DAP DATADDS packet is apparently too short` for `air.1924`, after which the script
+    carried on). Every field is now checked after transfer (no missing values where the
+    models need them, physical bounds per variable) and fetched again if it fails, up to 5
+    times. `check_standard` also rejects missing values in the fields the models read
+    everywhere and checks Z, U, V and SKT bounds. Tested offline by damaging the first two
+    transfers of T (zeros, then a missing tail): both were caught, the third was used.
 
 ## Measured cost
 
