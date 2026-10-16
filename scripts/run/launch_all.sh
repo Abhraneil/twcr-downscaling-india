@@ -13,6 +13,10 @@
 #   regcm           20   RegCM5 12+3 km: E2 ERA5, E2 20CRv3, E1 20CRv3 in turn  13-27
 # Estimates from docs/budget.md (4-8 us per point-level-step; RegCM measured 4.8 us).
 set -uo pipefail
+# The lanes run for a day: they must survive the SSH session ending (laptop closed, network
+# drop). Ignoring SIGHUP here is inherited by every lane, mpirun and model process, the same
+# as nohup; stdin from /dev/null so nothing waits on a terminal that is gone.
+trap '' HUP
 source "$(dirname "$0")/env.sh"
 L=$TWCR_HOME/logs
 mkdir -p "$L"
@@ -25,7 +29,7 @@ lane() {   # name ranks commands...
       echo "[$(date '+%a %H:%M')] start: $cmd"
       if eval "$cmd"; then echo "[$(date '+%a %H:%M')] done:  $cmd"
       else echo "[$(date '+%a %H:%M')] FAILED: $cmd"; exit 1; fi
-    done ) > "$L/lane_$name.log" 2>&1 &
+    done ) > "$L/lane_$name.log" 2>&1 < /dev/null &
   echo "lane $name ($np ranks) pid $! -> $L/lane_$name.log"
 }
 
