@@ -75,9 +75,70 @@ def norm(ds):
     return ds.drop_vars([c for c in drop if c in ds.variables], errors="ignore").sortby("lat")
 
 
-def main(event: str) -> None:
-    import cdsapi  # imported here so the rest of the repo does not need it
+def write_atomic(ds: xr.Dataset, path: Path) -> None:
+    tmp = path.with_name(path.name + ".part")
+    ds.to_netcdf(tmp)
+    tmp.replace(path)
 
+
+def have(path: Path) -> bool:
+    return path.exists() and path.stat().st_size > 0
+
+
+def too_large(err: Exception) -> bool:
+    m = str(err).lower()
+    return "cost limits" in m or "too large" in m
+
+
+class Fetcher:
+    """cdsapi retrieval that never leaves a partial file and splits requests CDS rejects as
+    too large (CDS 'cost limits exceeded'): first one request per variable, then halves of
+    the day list. Pieces are normalised (norm) and merged; norm is idempotent, so a merged
+    file reads exactly like a single CDS download."""
+
+    def __init__(self):
+        self._client = None
+
+    def retrieve(self, dataset: str, req: dict, target: Path) -> None:
+        if have(target):
+            return
+        if self._client is None:                 # created only if something must be fetched
+            import cdsapi
+            self._client = cdsapi.Client()
+        tmp = target.with_name(target.name + ".part")
+        self._client.retrieve(dataset, req, str(tmp))
+        tmp.replace(target)
+
+    def get(self, dataset: str, req: dict, target: Path) -> None:
+        if have(target):
+            return
+        try:
+            self.retrieve(dataset, req, target)
+            return
+        except Exception as err:                 # noqa: BLE001 - re-raised unless 'too large'
+            if not too_large(err):
+                raise
+            print(f"  CDS: request for {target.name} too large; splitting", flush=True)
+        if len(req["variable"]) > 1:
+            parts = []
+            for v in req["variable"]:
+                fv = target.with_name(f"{target.stem}_{v}.nc")
+                self.get(dataset, req | {"variable": [v]}, fv)
+                parts.append(norm(open_cds(fv)))
+            write_atomic(xr.merge(parts, compat="override", join="exact"), target)
+        elif len(req["day"]) > 1:
+            h = len(req["day"]) // 2
+            parts = []
+            for k, days in enumerate((req["day"][:h], req["day"][h:])):
+                fd = target.with_name(f"{target.stem}_d{k}.nc")
+                self.get(dataset, req | {"day": days}, fd)
+                parts.append(norm(open_cds(fd)))
+            write_atomic(xr.concat(parts, dim="time").sortby("time"), target)
+        else:
+            raise RuntimeError(f"CDS rejects even a single-variable, single-day request for {target.name}")
+
+
+def main(event: str) -> None:
     cfg = load_config()
     ev = cfg["events"][event]
     tt = times(ev, 3)
@@ -86,22 +147,22 @@ def main(event: str) -> None:
     raw = DATA / "raw" / "era5"
     raw.mkdir(parents=True, exist_ok=True)
     fpl, fsl = raw / f"{event}_pl.nc", raw / f"{event}_sl.nc"
-    _c = []
-    def c_retrieve(*args):                      # client created only if something must be fetched
-        if not _c:
-            _c.append(cdsapi.Client())
-        _c[0].retrieve(*args)
-    if not fpl.exists():
-        r = request(tt) | {"variable": PL_VARS, "pressure_level": [str(p) for p in PLEVS]}
-        c_retrieve("reanalysis-era5-pressure-levels", r, str(fpl))
-    if not fsl.exists():
-        c_retrieve("reanalysis-era5-single-levels", request(tt) | {"variable": SL_VARS}, str(fsl))
+    cds = Fetcher()
+    # 5 variables x 37 levels x 7 days x 8 times exceeds the CDS cost limit in one request,
+    # so pressure levels go one variable per request from the start.
+    if not have(fpl):
+        parts = []
+        for v in PL_VARS:
+            fv = raw / f"{event}_pl_{v}.nc"
+            cds.get("reanalysis-era5-pressure-levels",
+                    request(tt) | {"variable": [v], "pressure_level": [str(p) for p in PLEVS]}, fv)
+            parts.append(norm(open_cds(fv)))
+        write_atomic(xr.merge(parts, compat="override", join="exact"), fpl)
+    cds.get("reanalysis-era5-single-levels", request(tt) | {"variable": SL_VARS}, fsl)
     ftp = raw / f"{event}_tp.nc"
-    if not ftp.exists():
-        r = request(tt) | {"variable": ["total_precipitation"], "time": [f"{h:02d}:00" for h in range(24)]}
-        days = sorted({t.strftime("%d") for t in tt} | {(tt[-1] + timedelta(days=1)).strftime("%d")})
-        r["day"] = days
-        c_retrieve("reanalysis-era5-single-levels", r, str(ftp))
+    r = request(tt) | {"variable": ["total_precipitation"], "time": [f"{h:02d}:00" for h in range(24)]}
+    r["day"] = sorted({t.strftime("%d") for t in tt} | {(tt[-1] + timedelta(days=1)).strftime("%d")})
+    cds.get("reanalysis-era5-single-levels", r, ftp)
     tp = norm(open_cds(ftp))["tp"]
     # ERA5 tp at time t is the accumulation over the hour ending at t (m) -> rate
     prf = driver_file(event, "ERA5").with_name(f"{event}_ERA5_precip.nc")

@@ -95,7 +95,49 @@ def open_remote(dirname: str, fname: str, retries: int = 4) -> xr.Dataset:
             time.sleep(10 * (k + 1))
 
 
-def subset(da: xr.DataArray, t0=None, t1=None) -> xr.DataArray:
+# Physical bounds per field. A truncated OPeNDAP transfer ("DAP DATADDS packet is apparently
+# too short") can return without an exception and leave fill values or garbage behind, so
+# every transfer is checked and repeated if it fails. Fields listed in COMPLETE must have no
+# missing values anywhere in the box (soil, snow and ice may be missing over sea or land).
+BOUNDS = {"T": (150, 340), "Z": (-1000, 60000), "Q": (-1e-6, 0.05), "U": (-150, 150), "V": (-150, 150),
+          "T2": (180, 340), "Q2": (-1e-6, 0.05), "U10": (-80, 80), "V10": (-80, 80),
+          "PSFC": (4e4, 1.1e5), "SKT": (180, 350), "SEAICE": (0, 1.0), "PMSL": (8.5e4, 1.1e5),
+          "ST": (180, 350), "SM": (0, 1.0), "SNOW": (0, 1e4), "PRATE": (-1e-6, 0.1)}
+COMPLETE = {"T", "Z", "Q", "U", "V", "T2", "Q2", "U10", "V10", "PSFC", "SKT", "PMSL", "PRATE"}
+MAY_BE_EMPTY = {"SEAICE", "SNOW"}   # no sea ice / snow in a tropical box: all-missing is legitimate
+
+
+def validate(da: xr.DataArray, name: str) -> str | None:
+    """Return a reason the transferred field is unusable, or None."""
+    a = da.values
+    fin = np.isfinite(a)
+    if name in COMPLETE and not fin.all():
+        return f"{(~fin).sum()} missing values"
+    if not fin.any():
+        return None if name in MAY_BE_EMPTY else "all values missing"
+    if name in BOUNDS:
+        lo, hi = BOUNDS[name]
+        if a[fin].min() < lo or a[fin].max() > hi:
+            return f"values {a[fin].min():.4g}..{a[fin].max():.4g} outside [{lo}, {hi}]"
+    return None
+
+
+def load_checked(da: xr.DataArray, name: str, retries: int = 5) -> xr.DataArray:
+    for k in range(retries):
+        try:
+            out = da.compute()                    # leaves `da` lazy, so a retry re-reads
+            why = validate(out, name)
+        except (RuntimeError, OSError) as err:
+            why = f"transfer error: {err}"
+        if why is None:
+            return out
+        print(f"  {name}: {why}; retry {k + 1}/{retries - 1}" if k < retries - 1 else f"  {name}: {why}", flush=True)
+        if k < retries - 1:
+            time.sleep(15 * (k + 1))
+    raise RuntimeError(f"{name}: no valid transfer after {retries} attempts")
+
+
+def subset(da: xr.DataArray, t0=None, t1=None, name: str | None = None) -> xr.DataArray:
     """Contiguous slices in the file's own order (one small OPeNDAP request), then sort."""
     lat = da["lat"].values
     lo, hi = DRIVER_BOX["lat_min"], DRIVER_BOX["lat_max"]
@@ -108,7 +150,7 @@ def subset(da: xr.DataArray, t0=None, t1=None) -> xr.DataArray:
         da = da.sel(time=slice(t0, t1))
     if da.size == 0:
         raise RuntimeError(f"empty subset for {da.name}")
-    return da.load().sortby("lat")
+    return load_checked(da, name or str(da.name)).sortby("lat")
 
 
 def main(event: str) -> None:
@@ -129,7 +171,7 @@ def main(event: str) -> None:
         var = [v for v in ds.data_vars if ds[v].ndim >= 3]
         if len(var) != 1:
             raise RuntimeError(f"{fname}: expected one data variable, found {var}")
-        da = subset(ds[var[0]], t0, t1)
+        da = subset(ds[var[0]], t0, t1, name=std)
         out[std] = (da, ds)
     # static fields
     d = "timeInvariant" + s
