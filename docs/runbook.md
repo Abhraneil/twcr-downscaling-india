@@ -108,6 +108,11 @@ validation item 22), WRF inputs of finished runs and the met_em files once real.
 takes it below 50 GB free (`OFFLOAD_DEST_RESERVE_GB`); files stay on /home instead and the
 log says so. Log: `~/TWCR/logs/offload.log`.
 
+On 18 October /home suddenly had about 750 GB free while /Datastorage reached 99%, so the
+mover was stopped and everything it had moved was copied back with
+`bash scripts/run/offload.sh --bring-back` (copy, compare, replace the symlink, delete the copy
+on /Datastorage). From then on all output stays on /home.
+
 (The first WRF attempt ran with its run directory on /Datastorage, before WRF wrote
 12-hour files; see validation item 21 for why it was restarted.)
 
