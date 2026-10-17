@@ -97,22 +97,19 @@ editing a namelist inside a run directory, so the repository always holds what r
 | OPeNDAP timeouts at PSL | re-run the download stage (it retries); or use `TWCR_20CR_LOCAL` with whole yearly files (see `get_20crv3.py`) |
 | CDS request queued for hours | leave it; `get_era5.py` resumes and skips files already downloaded |
 
-## Disk space: WRF on the large disk, finished output moved off /home
+## Disk space: finished output moved off /home
 
-WRF and RegCM5 each keep one output file per domain open for the whole run
-(`frames_per_outfile = 1000`), so output cannot be moved while a run is going. The three
-WRF runs write about 165 GB, more than /home had free, so their run directory lives on
-/Datastorage and is reached through a link at the usual path:
+Models write on /home (`~/TWCR/runs`); `scripts/run/offload.sh --loop` moves every file no model
+will open again to /Datastorage every 3 h, or at once when /home falls below 40 GB free,
+leaving symlinks so scoring reads the usual paths. That covers the output of finished RegCM5
+runs, WRF history files before the latest usable restart (WRF writes 12-hour files,
+validation item 22), WRF inputs of finished runs and the met_em files once real.exe has run.
+/Datastorage is shared and was filling at about 15 GB/h from other users, so the mover never
+takes it below 50 GB free (`OFFLOAD_DEST_RESERVE_GB`); files stay on /home instead and the
+log says so. Log: `~/TWCR/logs/offload.log`.
 
-```bash
-DS=/Datastorage/$USER/TWCR; mkdir -p $DS/runs/wrf
-mv ~/TWCR/runs/wrf ~/TWCR/runs/wrf.old 2>/dev/null; ln -s $DS/runs/wrf ~/TWCR/runs/wrf
-```
-
-RegCM5 (about 40 GB) runs on /home; `scripts/run/offload.sh --loop` moves the output of
-every finished run (and the met_em files of finished WRF cases) to /Datastorage every 3 h,
-or at once when /home falls below 40 GB free, leaving symlinks so scoring reads the usual
-paths. Log: `~/TWCR/logs/offload.log`.
+(The first WRF attempt ran with its run directory on /Datastorage, before WRF wrote
+12-hour files; see validation item 21 for why it was restarted.)
 
 ```bash
 setsid nohup bash scripts/run/offload.sh --loop > /dev/null 2>&1 < /dev/null &

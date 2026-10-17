@@ -143,19 +143,54 @@ check on the real 20CRv3 data (`hpc_setup.sh smoke`).
     0`, `nio_groups = 1`), and `scripts/check_namelists.py` also reads the NAMELIST
     declarations in WRF's frame/ sources and fails if a required group is missing (it flags
     the old namelists and passes the new ones).
-20. **WRF E2 ERA5 crashed after 8 h 19 min with a segmentation fault in Thompson microphysics**
-    (`mp_thompson`, from the backtrace via `addr2line`). The 08:00 output was healthy (no NaN,
-    |W| <= 13 m/s), so a gradual instability was not the cause. The ERA5 12 km `wrfinput` had
-    257 land points with soil water <= 0.01 m3/m3 (minimum 0.002), created by item 16's setting of
-    small negative ERA5 values to zero at coastal land points; the 20CRv3 inputs have none
-    (minimum 0.053). Completely dry soil is unphysical in the monsoon. `get_era5.py` now fills
-    land values below 0.01 m3/m3 from the nearest valid land point (same layer and time); sea
-    points are left alone. The ERA5 case was rerun with otherwise unchanged settings and ran
-    past 08:19 without trouble, so the crash is attributed to the soil input. On the HPC the
+20. **WRF E2 ERA5 had 257 land points with soil water <= 0.01 m3/m3** (minimum 0.002) in its
+    12 km `wrfinput`, created by item 16's setting of small negative ERA5 values to zero at
+    coastal land points; the 20CRv3 inputs have none (minimum 0.053). Completely dry soil is
+    unphysical in the monsoon. `get_era5.py` now fills land values below 0.01 m3/m3 from the
+    nearest valid land point (same layer and time); sea points are left alone. On the HPC the
     fill touched 65,981 land values (all layers and times): the 15,193 zeroed negatives plus
     small positive values below 0.01, some of them genuinely dry desert soil (Balochistan,
     Thar) now raised to the nearest value of at least 0.01, a negligible change far from the
     E2 scoring box. RegCM5 does not read driver soil moisture, so its ERA5 runs are unaffected.
+    This was first taken for the cause of the crash in item 21 (the run had stopped in
+    microphysics after 8 h 19 min); it was not: the rerun with filled soil crashed at 9 h 03 min.
+
+21. **All three WRF runs crashed in Thompson microphysics: an out-of-bounds table read in WRF
+    4.5.** E1 1924 at 117.6 h, E2 20CRv3 at 74 h, E2 ERA5 at 8.3 h and (after item 20) 9.05 h:
+    segmentation faults in `mp_thompson` with no CFL warning in any run, on 12 and 20 ranks,
+    for both events and both drivers. The node was not short of memory (at least 250 GB
+    available throughout, `sar -r`; no OOM events). All three crashes are at the same machine
+    instruction (`mp_thompson+0xc1dc`, a double-precision `minsd` with its operand read from
+    memory; `scripts/diagnostics/faultpc.py`), i.e. one source line.
+    The cause is in `phys/module_mp_thompson.F`. Without hail-aware graupel (`mp_physics = 8`)
+    the rain-graupel collection tables `tcg_racg, tmr_racg, tcr_gacr, tnr_racg, tnr_gacr` are
+    allocated and filled with a graupel-density dimension of extent `dimNRHG = NRHG1 = 1`, but
+    the eight lookups in `mp_thompson` index that dimension with `idx_bg(k)`, which the code
+    sets to `idx_bg1 = 5` for this scheme. Each lookup therefore reads 4 x 37 x 37 elements
+    past the intended one: a wrong table entry (the rain intercept bin shifted by 4) in most
+    columns, and memory beyond the end of the table when the rain bin is the largest and the
+    intercept bin is among the top four, i.e. in the heaviest rain with graupel. The crash
+    instruction is the `MIN(DBLE(..*odts), table value)` that follows such a lookup. The same
+    lookups are unchanged in WRF 4.5.1 to 4.7.1.
+    Fix (`patches/wrf45_thompson_fix.py`, built by `scripts/setup/build_wrf_thompsonfix.sh` in a
+    copy of the WRF build): read the tables at `MIN(idx_bg(k), dimNRHG)`, which is 1 here and
+    unchanged (`idx_bg(k)`) for hail-aware `mp_physics = 38`; together with the two upstream
+    Thompson changes of WRF 4.5.1 (commit 775826b: largest cloud-ice bin 5 -> 2 x D0s, rain
+    drops made per rain-graupel collision 5 -> 1.5, the latter because too many drops gave
+    evaporative cooling of about 27 K/h in NOAA tests). With the patch the WRF Thompson scheme
+    is that of WRF 4.7.1 plus the bounds fix. All three WRF runs were restarted from the initial
+    time with it. `tests/thompson_bounds/` runs one column through the original and the patched
+    module with Fortran bounds checking.
+
+22. **WRF writes restart files every 12 simulated hours and history in 12-hour files.**
+    Introduced after item 21, when all three runs had to start over: `scripts/run/run_wrf.sh`
+    continues a run that stops early from the latest restart WRF wrote completely (both
+    domains present and d02 stepped past it), at most 6 times, and stops instead if two attempts
+    from the same restart stop at the same model time (a crash that repeats exactly is a model
+    problem). Every continuation is logged in the run's `resumes.log`. The history file layout
+    lets a continuation rewrite exactly the files from the restart time on
+    (`write_hist_at_0h_rst = .true.`), and lets `offload.sh` move the files before the latest
+    restart while WRF runs. Neither changes the simulated fields.
 
 ## Measured cost
 
