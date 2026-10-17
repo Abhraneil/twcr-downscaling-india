@@ -96,3 +96,24 @@ editing a namelist inside a run directory, so the repository always holds what r
 | `real.exe` complains about missing soil levels | check `num_metgrid_soil_levels = 4` and that the driver file has ST/SM |
 | OPeNDAP timeouts at PSL | re-run the download stage (it retries); or use `TWCR_20CR_LOCAL` with whole yearly files (see `get_20crv3.py`) |
 | CDS request queued for hours | leave it; `get_era5.py` resumes and skips files already downloaded |
+
+## Disk space: WRF on the large disk, finished output moved off /home
+
+WRF and RegCM5 each keep one output file per domain open for the whole run
+(`frames_per_outfile = 1000`), so output cannot be moved while a run is going. The three
+WRF runs write about 165 GB, more than /home had free, so their run directory lives on
+/Datastorage and is reached through a link at the usual path:
+
+```bash
+DS=/Datastorage/$USER/TWCR; mkdir -p $DS/runs/wrf
+mv ~/TWCR/runs/wrf ~/TWCR/runs/wrf.old 2>/dev/null; ln -s $DS/runs/wrf ~/TWCR/runs/wrf
+```
+
+RegCM5 (about 40 GB) runs on /home; `scripts/run/offload.sh --loop` moves the output of
+every finished run (and the met_em files of finished WRF cases) to /Datastorage every 3 h,
+or at once when /home falls below 40 GB free, leaving symlinks so scoring reads the usual
+paths. Log: `~/TWCR/logs/offload.log`.
+
+```bash
+setsid nohup bash scripts/run/offload.sh --loop > /dev/null 2>&1 < /dev/null &
+```
