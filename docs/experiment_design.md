@@ -82,6 +82,7 @@ is between model systems rather than between single parameterisations.
 | Land surface | Noah, initialised from the driver soil | BATS, initialised from RegCM defaults |
 | Radiation | RRTMG, no aerosol | CCSM, no aerosol (`iclimaaer = 0`) |
 | Greenhouse gases | CMIP6 historical (by year) | CMIP6 historical (by year, `SSP245` table) |
+| SST during the run | held at the initial value (`sst_update = 0`), usual for event runs of a few days | updated from the driver at every 3-hourly boundary time |
 | Interior nudging | none | none (spectral relaxation of the model top only, MOLOCH default) |
 | Orographic gravity-wave drag | off (`gwd_opt = 0`) | none in RegCM5 |
 | Lateral boundary | 5-point specified/relaxation zone | exponential relaxation, 20 points (12 km), 31 points (3 km) |
