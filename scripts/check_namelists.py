@@ -4,8 +4,10 @@
     python scripts/check_namelists.py --wrf /path/to/WRF --regcm /path/to/RegCM
 
 WRF keys are checked against the `rconfig ... namelist,<group>` entries of the
-Registry; RegCM keys against the `namelist /group/ ...` declarations in the
-Fortran sources. Exits non-zero if any key or group is unknown.
+Registry, plus the groups WRF declares directly in Fortran (`namelist_quilt`, read by
+frame/module_io_quilt_old.F); RegCM keys against the `namelist /group/ ...` declarations
+in the Fortran sources. Groups that WRF reads with a fatal error when absent must be
+present. Exits non-zero if any key or group is unknown or a required group is missing.
 """
 from __future__ import annotations
 
@@ -28,7 +30,15 @@ def wrf_keys(wrf: Path) -> set[tuple[str, str]]:
             m = re.match(r"^rconfig\s+\S+\s+(\w+)\s+namelist,(\w+)", line)
             if m:
                 keys.add((m.group(2).lower(), m.group(1).lower()))
+    for f in (wrf / "frame").glob("*.F"):
+        for m in re.finditer(r"NAMELIST\s*/\s*(\w+)\s*/([^\n]*)", f.read_text(errors="replace"), re.I):
+            for n in re.findall(r"[A-Za-z_]\w*", m.group(2).split("!")[0]):
+                keys.add((m.group(1).lower(), n.lower()))
     return keys
+
+
+# Read by real.exe/wrf.exe with IOSTAT and wrf_error_fatal on any failure, including absence.
+WRF_REQUIRED_GROUPS = {"namelist_quilt"}
 
 
 def regcm_keys(regcm: Path) -> dict[str, set[str]]:
@@ -51,7 +61,10 @@ def main() -> int:
     bad = []
     wk = wrf_keys(a.wrf)
     for f in sorted((ROOT / "namelists/wrf").glob("namelist.input.*")):
-        for g, items in f90nml.read(f).items():
+        nml = f90nml.read(f)
+        for g in sorted(WRF_REQUIRED_GROUPS - {k.lower() for k in nml}):
+            bad.append(f"{f.name}: required group &{g} missing")
+        for g, items in nml.items():
             for k in items:
                 if (g.lower(), k.lower()) not in wk:
                     bad.append(f"{f.name}: &{g} {k}")
