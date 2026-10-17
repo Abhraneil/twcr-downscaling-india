@@ -75,6 +75,32 @@ def norm(ds):
     return ds.drop_vars([c for c in drop if c in ds.variables], errors="ignore").sortby("lat")
 
 
+SM_MIN = 0.01   # m3/m3: below the lowest soil water ERA5 (HTESSEL) holds on real land
+
+
+def fill_dry_land(sm: xr.DataArray, land: xr.DataArray) -> xr.DataArray:
+    """Replace land soil water below SM_MIN by the nearest valid land value (per layer and time)."""
+    from scipy.ndimage import distance_transform_edt
+    a = sm.transpose("time", "soil_layer", "lat", "lon").values.copy()
+    lm = land.transpose("lat", "lon").values
+    n = 0
+    for t in range(a.shape[0]):
+        for k in range(a.shape[1]):
+            f = a[t, k]
+            bad = lm & ~(f >= SM_MIN)
+            if not bad.any():
+                continue
+            good = lm & (f >= SM_MIN)
+            if not good.any():
+                raise ValueError("no valid ERA5 soil water on land")
+            _, (ii, jj) = distance_transform_edt(~good, return_indices=True)
+            f[bad] = f[ii[bad], jj[bad]]
+            n += int(bad.sum())
+    if n:
+        print(f"SM: {n} land values below {SM_MIN} m3/m3 filled from the nearest valid land point", flush=True)
+    return sm.transpose("time", "soil_layer", "lat", "lon").copy(data=a)
+
+
 def write_atomic(ds: xr.Dataset, path: Path) -> None:
     tmp = path.with_name(path.name + ".part")
     ds.to_netcdf(tmp)
@@ -213,6 +239,11 @@ def main(event: str) -> None:
             print(f"{v}: {int(neg.sum())} negative values (min {vmin:.2g}; "
                   f"{int((neg & (std['LANDSEA'] > 0.5)).sum())} on land) set to 0", flush=True)
             std[v] = std[v].clip(min=0.0)
+    # Zeroing those values leaves a few land points (mostly at coasts) with no soil water at all,
+    # which is unphysical in the monsoon and made WRF's first ERA5 run crash after 8 h. Give every
+    # land value below SM_MIN the value of the nearest land point that has valid soil water, in the
+    # same layer and time. Sea points are not used by the land models and are left as they are.
+    std["SM"] = fill_dry_land(std["SM"], std["LANDSEA"] > 0.5)
     std["SOILHGT"] = (sl["z"].isel(time=0, drop=True) / G).astype("float32")
     for v in std.data_vars:
         std[v] = std[v].astype("float32")
