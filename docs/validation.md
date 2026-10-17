@@ -150,8 +150,12 @@ check on the real 20CRv3 data (`hpc_setup.sh smoke`).
     small negative ERA5 values to zero at coastal land points; the 20CRv3 inputs have none
     (minimum 0.053). Completely dry soil is unphysical in the monsoon. `get_era5.py` now fills
     land values below 0.01 m3/m3 from the nearest valid land point (same layer and time); sea
-    points are left alone. The ERA5 case was rerun with otherwise unchanged settings, so a pass
-    beyond 08:19 attributes the crash to the soil input.
+    points are left alone. The ERA5 case was rerun with otherwise unchanged settings and ran
+    past 08:19 without trouble, so the crash is attributed to the soil input. On the HPC the
+    fill touched 65,981 land values (all layers and times): the 15,193 zeroed negatives plus
+    small positive values below 0.01, some of them genuinely dry desert soil (Balochistan,
+    Thar) now raised to the nearest value of at least 0.01, a negligible change far from the
+    E2 scoring box. RegCM5 does not read driver soil moisture, so its ERA5 runs are unaffected.
 
 ## Measured cost
 
