@@ -76,7 +76,7 @@ is between model systems rather than between single parameterisations.
 | Nesting | one run, d01 12 km + d02 3 km, one-way (`feedback = 0`) | 12 km run from the reanalysis, then 3 km run nested on its output (`FNEST`) |
 | Dynamics | non-hydrostatic, 50 levels, top 50 hPa | non-hydrostatic MOLOCH, 30 levels (12 km) / 50 levels (3 km) |
 | Time step | 60 s / 15 s | 90 s / 30 s |
-| Microphysics | Thompson | Nogherotto-Tompkins (`ipptls = 2`) |
+| Microphysics | Thompson (`mp_physics = 8`) with a bounds fix and the WRF 4.5.1 changes (validation item 21) | Nogherotto-Tompkins (`ipptls = 2`) |
 | Convection | Grell-Freitas at 12 km, none at 3 km | Tiedtke at 12 km, none at 3 km |
 | PBL / surface layer | YSU / revised MM5 | Holtslag / Zeng ocean fluxes |
 | Land surface | Noah, initialised from the driver soil | BATS, initialised from RegCM defaults |
@@ -86,6 +86,7 @@ is between model systems rather than between single parameterisations.
 | Interior nudging | none | none (spectral relaxation of the model top only, MOLOCH default) |
 | Orographic gravity-wave drag | off (`gwd_opt = 0`) | none in RegCM5 |
 | Lateral boundary | 5-point specified/relaxation zone | exponential relaxation, 20 points (12 km), 31 points (3 km) |
+| Output | hourly, one file per 12 h; restart files every 12 h (validation item 22) | 3-hourly atmosphere, hourly surface (SRF/SHF) |
 
 RegCM5 physics follow the CORDEX namelists shipped with the model
 (`Testing/CORDEX/EUR-12_RegCM5_ERA5.namelist`, `EUR-03_RegCM5_ERA5.namelist`).

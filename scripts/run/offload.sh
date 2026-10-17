@@ -2,18 +2,22 @@
 # Move finished model output from $RUN_ROOT (on /home) to a larger disk and leave a symlink in
 # place of every moved file, so the analysis scripts keep reading $RUN_ROOT unchanged.
 #
-# Only files that no model will open again are moved:
+# Only files that no model will open or write again are moved:
 #   RegCM5  input/ and output/ *.nc of a run whose regcm.log reached its end; a 12 km run only
 #           once the 3 km run nested on it has finished too (FNEST reads the 12 km ATM files)
-#   WRF     wrfout/wrfxtrm/wrfinput/wrfbdy/wrfrst of a run with SUCCESS COMPLETE WRF
-#           (nothing to do when $RUN_ROOT/wrf already points to the large disk)
-#   WPS     met_em files of a case whose WRF run has finished
-# A file still being written is never touched: WRF and RegCM keep one output file per domain
-# open for the whole run, which is why running WRF writes directly to the large disk.
+#   WRF     history is written in 12-hour files (scripts/generate_namelists.py); a file is final
+#           once the run has a usable restart at or after the end of its 12 hours, since a run
+#           continued from a restart rewrites only the files from the restart time on
+#           (scripts/run/run_wrf.sh records usable restarts in restarts_ok.txt). wrfinput and
+#           wrfbdy once the run has finished (a continuation reads wrfbdy). Nothing to do when
+#           $RUN_ROOT/wrf itself points to the large disk.
+#   WPS     met_em files of a case whose real.exe has finished
+# A file still being written is never touched: RegCM keeps one output file per domain open
+# for the whole run.
 #
-# The destination is shared and running WRF writes there too, so the mover never takes it
-# below OFFLOAD_DEST_RESERVE_GB free (default 80): a file that would is left on /home and the
-# pass says so.
+# The destination is shared with other users, so the mover never takes it below
+# OFFLOAD_DEST_RESERVE_GB free (default 50): a file that would is left on /home and the pass
+# says so.
 #
 # Each file: copy to <dest>.part, compare byte for byte (cmp), rename, delete the source,
 # symlink. Only coreutils/diffutils are needed. Safe to interrupt and to rerun: the next pass
@@ -28,7 +32,7 @@ source "$(dirname "$0")/env.sh"
 DEST=${OFFLOAD_DEST:-/Datastorage/$USER/TWCR}
 EVERY_H=${OFFLOAD_EVERY_H:-3}
 MIN_FREE_GB=${OFFLOAD_MIN_FREE_GB:-40}
-DEST_RESERVE_GB=${OFFLOAD_DEST_RESERVE_GB:-80}
+DEST_RESERVE_GB=${OFFLOAD_DEST_RESERVE_GB:-50}
 LOG=$TWCR_HOME/logs/offload.log
 mkdir -p "$TWCR_HOME/logs"
 say() { echo "[$(date '+%a %d %H:%M')] $*" | tee -a "$LOG"; }
@@ -58,6 +62,9 @@ move_matching() {   # dir glob...
 }
 
 wrf_done() { grep -aqs "SUCCESS COMPLETE WRF" "$RUN_ROOT/wrf/$1/rsl.error.0000"; }
+real_done() { grep -aqs "SUCCESS COMPLETE REAL_EM" "$RUN_ROOT/wrf/$1/real_logs/rsl.error.0000"; }
+WRF_FILE_H=12   # hours per WRF history file = restart interval (RESTART_H in generate_namelists.py)
+wrf_epoch() { date -u -d "${1/_/ }" +%s; }   # 2005-07-24_12:00:00 -> seconds
 regcm_done() { grep -aqs "successfully reached end" "$RUN_ROOT/regcm/$1/regcm.log"; }
 
 one_pass() {
@@ -75,14 +82,25 @@ one_pass() {
   done
   # WRF (skipped when the wrf directory itself lives on the large disk)
   if [ -d "$RUN_ROOT/wrf" ] && [ ! -L "$RUN_ROOT/wrf" ]; then
+    local R f t
     for r in "$RUN_ROOT"/wrf/*/; do
-      c=$(basename "$r"); wrf_done "$c" || continue
-      move_matching "$RUN_ROOT/wrf/$c" "wrfout_*" "wrfxtrm_*" "wrfinput_*" "wrfbdy_*" "wrfrst_*"
+      r=${r%/}; c=$(basename "$r")
+      if wrf_done "$c"; then
+        move_matching "$r" "wrfout_*" "wrfinput_*" "wrfbdy_*"
+        continue
+      fi
+      R=$(sort -u "$r/restarts_ok.txt" 2>/dev/null | tail -1)
+      [ -n "$R" ] || continue
+      for f in "$r"/wrfout_d0?_*; do
+        [ -f "$f" ] && [ ! -L "$f" ] || continue
+        t=${f##*/wrfout_d0?_}
+        if [ $(( $(wrf_epoch "$t") + WRF_FILE_H * 3600 )) -le "$(wrf_epoch "$R")" ]; then move_file "$f"; fi
+      done
     done
   fi
-  # WPS met_em of finished WRF cases
+  # WPS met_em of cases whose real.exe has finished
   for r in "$RUN_ROOT"/wps/*/; do
-    c=$(basename "$r"); wrf_done "$c" || continue
+    c=$(basename "$r"); real_done "$c" || continue
     move_matching "$RUN_ROOT/wps/$c" "met_em.*"
   done
   # repair: a file whose source was deleted but whose symlink was not yet made

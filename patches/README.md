@@ -36,3 +36,22 @@ passes `trim(path)//C_NULL_CHAR`, so nothing else changes.
 **Verification.** With gfortran 11.5 the whole tree builds, and `terrain`/`sst`/`icbc` give the
 same output as the gfortran 13 build (`docs/validation.md` item 10). `hpc_setup.sh` applies
 it in both build paths.
+
+## `wrf45_thompson_fix.py` (WRF 4.5 `phys/module_mp_thompson.F`)
+
+**Bug.** With `mp_physics = 8` (no hail-aware graupel) the five rain-graupel collection tables
+(`tcg_racg, tmr_racg, tcr_gacr, tnr_racg, tnr_gacr`) have a graupel-density dimension of extent
+`dimNRHG = 1`, but `mp_thompson` reads them at `idx_bg(k) = idx_bg1 = 5`: an out-of-bounds
+read in every rain-graupel collection, still present in WRF 4.7.1.
+
+**Symptom.** Wrong collection rates in most columns (the entry four rain-intercept bins away)
+and a segmentation fault in `mp_thompson` when the read runs past the end of the table, in the
+heaviest rain with graupel. All three WRF runs here crashed at the same instruction.
+
+**Fix.** Read the tables at `MIN(idx_bg(k), dimNRHG)` (8 lookups; unchanged for
+`mp_physics = 38`), plus the two Thompson changes of WRF 4.5.1 (commit 775826b).
+
+**Verification.** `tests/thompson_bounds/` (one column, Fortran bounds checking: the original
+stops at the first rain-graupel lookup, the patched module runs) and validation item 21.
+`scripts/setup/build_wrf_thompsonfix.sh` builds a patched copy of WRF; the original build is
+untouched. It should be reported to github.com/wrf-model/WRF.
