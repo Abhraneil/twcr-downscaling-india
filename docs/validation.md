@@ -143,6 +143,15 @@ check on the real 20CRv3 data (`hpc_setup.sh smoke`).
     0`, `nio_groups = 1`), and `scripts/check_namelists.py` also reads the NAMELIST
     declarations in WRF's frame/ sources and fails if a required group is missing (it flags
     the old namelists and passes the new ones).
+20. **WRF E2 ERA5 crashed after 8 h 19 min with a segmentation fault in Thompson microphysics**
+    (`mp_thompson`, from the backtrace via `addr2line`). The 08:00 output was healthy (no NaN,
+    |W| <= 13 m/s), so a gradual instability was not the cause. The ERA5 12 km `wrfinput` had
+    257 land points with soil water <= 0.01 m3/m3 (minimum 0.002), created by item 16's setting of
+    small negative ERA5 values to zero at coastal land points; the 20CRv3 inputs have none
+    (minimum 0.053). Completely dry soil is unphysical in the monsoon. `get_era5.py` now fills
+    land values below 0.01 m3/m3 from the nearest valid land point (same layer and time); sea
+    points are left alone. The ERA5 case was rerun with otherwise unchanged settings, so a pass
+    beyond 08:19 attributes the crash to the soil input.
 
 ## Measured cost
 
