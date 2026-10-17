@@ -11,6 +11,10 @@
 # A file still being written is never touched: WRF and RegCM keep one output file per domain
 # open for the whole run, which is why running WRF writes directly to the large disk.
 #
+# The destination is shared and running WRF writes there too, so the mover never takes it
+# below OFFLOAD_DEST_RESERVE_GB free (default 80): a file that would is left on /home and the
+# pass says so.
+#
 # Each file: copy to <dest>.part, compare byte for byte (cmp), rename, delete the source,
 # symlink. Only coreutils/diffutils are needed. Safe to interrupt and to rerun: the next pass
 # finishes any half-moved file.
@@ -24,6 +28,7 @@ source "$(dirname "$0")/env.sh"
 DEST=${OFFLOAD_DEST:-/Datastorage/$USER/TWCR}
 EVERY_H=${OFFLOAD_EVERY_H:-3}
 MIN_FREE_GB=${OFFLOAD_MIN_FREE_GB:-40}
+DEST_RESERVE_GB=${OFFLOAD_DEST_RESERVE_GB:-80}
 LOG=$TWCR_HOME/logs/offload.log
 mkdir -p "$TWCR_HOME/logs"
 say() { echo "[$(date '+%a %d %H:%M')] $*" | tee -a "$LOG"; }
@@ -32,6 +37,10 @@ free_gb() { df -P -BG "$1" 2>/dev/null | awk 'NR==2 {sub("G","",$4); print $4}';
 move_file() {   # src (regular file under RUN_ROOT)
   local s=$1 rel d
   rel=${s#"$RUN_ROOT"/}; d=$DEST/runs/$rel
+  # room check: destination free space minus this file must stay above the reserve
+  if [ $(( $(free_gb "$DEST") - $(stat -c %s "$s") / 1073741824 )) -lt "$DEST_RESERVE_GB" ]; then
+    KEPT=$((KEPT + 1)); return 1
+  fi
   mkdir -p "$(dirname "$d")" || return 1
   cp --preserve=mode,timestamps "$s" "$d.part" || { say "  copy failed, kept: $s"; rm -f "$d.part"; return 1; }
   cmp -s "$s" "$d.part" || { say "  copy differs from source, kept: $s"; rm -f "$d.part"; return 1; }
@@ -52,7 +61,7 @@ wrf_done() { grep -aqs "SUCCESS COMPLETE WRF" "$RUN_ROOT/wrf/$1/rsl.error.0000";
 regcm_done() { grep -aqs "successfully reached end" "$RUN_ROOT/regcm/$1/regcm.log"; }
 
 one_pass() {
-  MOVED=0; BYTES=0
+  MOVED=0; BYTES=0; KEPT=0
   local r name c
   say "pass: /home free $(free_gb "$RUN_ROOT") GB, $DEST free $(free_gb "$DEST") GB"
   # RegCM5
@@ -84,6 +93,7 @@ one_pass() {
     done
   fi
   say "  moved $MOVED files, $((BYTES / 1024 / 1024 / 1024)) GB; /home free now $(free_gb "$RUN_ROOT") GB"
+  [ "$KEPT" -gt 0 ] && say "  kept $KEPT finished files on /home: $DEST would drop below the $DEST_RESERVE_GB GB reserve"
   [ "$(free_gb "$RUN_ROOT")" -lt "$MIN_FREE_GB" ] && say "  WARNING: /home below $MIN_FREE_GB GB free with nothing more that can be moved safely"
   return 0
 }
@@ -94,7 +104,7 @@ locked_pass() {
 }
 
 if [ "${1:-}" = "--loop" ]; then
-  say "loop started: every $EVERY_H h, or at once below $MIN_FREE_GB GB free on /home; destination $DEST"
+  say "loop started: every $EVERY_H h, or at once below $MIN_FREE_GB GB free on /home; destination $DEST (kept above $DEST_RESERVE_GB GB free)"
   last=0
   while true; do
     now=$(date +%s)
