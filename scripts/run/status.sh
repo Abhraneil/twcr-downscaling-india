@@ -34,9 +34,22 @@ for ev, e in cfg["events"].items():
                 fin = "successfully reached end" in txt
                 t = datetime.strptime(m[-1], "%Y-%m-%d %H:%M:%S") if m else None
             frac = 1.0 if fin else ((t - s0).total_seconds() / span if t else 0.0)
-            start = log.parent.stat().st_ctime
-            el = now - start
-            eta = f"{(el / frac - el) / 3600:6.1f} h" if 0 < frac < 1 else f"{0:6.1f} h"
+            # speed of the current attempt: model time since it started over wall time since it
+            # started (namelist.input / regcm.in are written when an attempt starts)
+            if kind == "wrf":
+                nl = log.parent / "namelist.input"
+                g = lambda k: int(re.search(rf"^\s*{k}\s*=\s*(\d+)", nl.read_text(), re.M).group(1))
+                a0 = datetime(g("start_year"), g("start_month"), g("start_day"), g("start_hour"))
+            else:
+                nl, a0 = log.parent / "regcm.in", s0
+            wall = now - nl.stat().st_mtime
+            rate = (t - a0).total_seconds() / wall if t and wall > 0 else 0.0
+            if fin:
+                eta = f"{0:6.1f} h"
+            elif rate > 0:
+                eta = f"{(s1 - t).total_seconds() / rate / 3600:6.1f} h"
+            else:
+                eta = "     ?  "
             silent = (now - log.stat().st_mtime) / 60
             if fin:
                 note = "finished"
