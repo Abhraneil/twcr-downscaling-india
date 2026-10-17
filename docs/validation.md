@@ -179,8 +179,11 @@ check on the real 20CRv3 data (`hpc_setup.sh smoke`).
     drops made per rain-graupel collision 5 -> 1.5, the latter because too many drops gave
     evaporative cooling of about 27 K/h in NOAA tests). With the patch the WRF Thompson scheme
     is that of WRF 4.7.1 plus the bounds fix. All three WRF runs were restarted from the initial
-    time with it. `tests/thompson_bounds/` runs one column through the original and the patched
-    module with Fortran bounds checking.
+    time with it. `tests/thompson_bounds/run.sh` runs one column (heavy rain with graupel above and
+    below the melting level) through WRF 4.5's own module with Fortran bounds checking: the
+    original stops with `Index '5' of dimension 3 of array 'tcg_racg' above upper bound of 1` at
+    `prr_rcg(k) = tcg_racg(...)`, the lookup that the crash instruction's `MIN` follows
+    (`prr_rcg(k) = MIN(DBLE(rg(k)*odts), prr_rcg(k))`); the patched module completes the step.
 
 22. **WRF writes restart files every 12 simulated hours and history in 12-hour files.**
     Introduced after item 21, when all three runs had to start over: `scripts/run/run_wrf.sh`
