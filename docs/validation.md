@@ -135,6 +135,14 @@ check on the real 20CRv3 data (`hpc_setup.sh smoke`).
     LD_LIBRARY_PATH unchanged, so WRF and WPS are not affected. Checked here end to end:
     the rebuilt preprocessors write netCDF-4 files and the 12 km model starts on 8 ranks with
     the same surface-pressure range (862.76-1006.49 hPa) as the earlier build.
+19. **real.exe stopped at once with `ERROR reading namelist namelist_quilt`** (all three WRF
+    cases). WRF 4.5 reads `&namelist_quilt` itself (frame/module_io_quilt_old.F, `READ(...,
+    IOSTAT=io_status)` then `wrf_error_fatal` on any non-zero status), so the group is
+    mandatory even without I/O quilting; the other groups fall back to Registry defaults.
+    The generated namelists now carry `&grib2` and `&namelist_quilt` (`nio_tasks_per_group =
+    0`, `nio_groups = 1`), and `scripts/check_namelists.py` also reads the NAMELIST
+    declarations in WRF's frame/ sources and fails if a required group is missing (it flags
+    the old namelists and passes the new ones).
 
 ## Measured cost
 
