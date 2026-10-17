@@ -27,6 +27,9 @@
 #   bash scripts/run/offload.sh --loop   a pass every OFFLOAD_EVERY_H hours (default 3), and at
 #                                        once whenever /home free space drops below
 #                                        OFFLOAD_MIN_FREE_GB (default 40); checks every 10 min
+#   bash scripts/run/offload.sh --bring-back   the reverse: copy every moved file back to its place
+#                                        under $RUN_ROOT (replacing the symlink) and delete it on the
+#                                        destination; for when /home has room again (stop --loop first)
 set -uo pipefail
 source "$(dirname "$0")/env.sh"
 DEST=${OFFLOAD_DEST:-/Datastorage/$USER/TWCR}
@@ -120,6 +123,25 @@ locked_pass() {
   mkdir -p "$DEST/runs" || { say "cannot create $DEST/runs"; return 1; }
   ( flock -n 9 || { say "another pass is running; skipped"; exit 0; }; one_pass ) 9> "$TWCR_HOME/.offload.lock"
 }
+
+bring_back() {
+  local n=0 k=0 l t
+  say "bring-back: /home free $(free_gb "$RUN_ROOT") GB"
+  while read -r l; do
+    t=$(readlink "$l")
+    if cp --preserve=mode,timestamps "$t" "$l.part" && cmp -s "$t" "$l.part" && mv -f "$l.part" "$l"; then
+      rm -f "$t"; n=$((n + 1))
+    else
+      rm -f "$l.part"; k=$((k + 1)); say "  kept link: $l"
+    fi
+  done < <(find "$RUN_ROOT" -type l -lname "$DEST/runs/*")
+  say "  brought back $n files ($k kept as links); /home free now $(free_gb "$RUN_ROOT") GB"
+}
+
+if [ "${1:-}" = "--bring-back" ]; then
+  ( flock -n 9 || { say "a pass is running; stop offload.sh --loop first"; exit 1; }; bring_back ) 9> "$TWCR_HOME/.offload.lock"
+  exit $?
+fi
 
 if [ "${1:-}" = "--loop" ]; then
   say "loop started: every $EVERY_H h, or at once below $MIN_FREE_GB GB free on /home; destination $DEST (kept above $DEST_RESERVE_GB GB free)"
