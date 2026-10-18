@@ -10,12 +10,12 @@ from a plot. Figure files are in `results/figures/story/`.
 1. Over the Western Ghats in July 1924, both regional models turned 20CRv3's weak, smeared
    rain (bias -80%, pattern r 0.51) into an orographic rain band in about the right place
    (r 0.80-0.83 at 12 km, bias -39%), with clear added value in all four runs, but the
-   modelled rain is still building two to three days after the observed peak and reaches only
-   0.5-0.6 of the observed maximum.
+   modelled rain peaks three days after the observed peak, and its largest daily values reach
+   only 0.52-0.62 of the observed.
 2. No model, resolution or driver produced the Mumbai cloudburst of 26 July 2005. Near
    Santacruz the largest 24 h total of any run within 50 km is 163 mm, against 944 mm
    observed. ERA5-driven runs put their heavy rain in a narrow band on the Ghats rather than
-   on the coastal plain, and 20CRv3-driven runs barely rain at all.
+   on the coastal plain, and 20CRv3-driven runs are 58-84% too dry.
 3. 3 km was not consistently better than 12 km. WRF at 3 km rained less than WRF at 12 km in
    every case; RegCM5 at 3 km raised the peaks but lost pattern correlation.
 
@@ -23,7 +23,7 @@ The contrast between 1 and 2 is the finding: rain that the terrain locks in plac
 through a pressure-only reanalysis and a regional model; rain from an organised convective
 system over the coastal plain did not, even with a modern driver.
 
-## Pre-registered criteria (docs/metrics.md), as they came out
+## Criteria fixed in advance (docs/metrics.md), as they came out
 
 | | Question | Result |
 |---|---|---|
@@ -57,9 +57,9 @@ heaviest cell 27 km from the observed one; RegCM5 12 km r 0.80, bias -39%. Nothi
 204.5 mm/day in the right place (FSS 0 at that threshold in every run).
 
 **Fig. 4** `fig5_E1_kerala1924_daily.png`. Day by day over the box. The observed box mean
-rises to about 104 mm on IMD day 17 July (24 h to 08:30 IST, matching the documented flood
-peak at Aluva on 16-17 July) and falls after. Every run, and 20CRv3's own rain, is still
-rising on 19-20 July. The late build-up is common to the driver and both models, which points
+rises to about 104 mm on IMD day 17 July (24 h to 08:30 IST, matching the 16-18 July 1924
+storm described by the Central Water Commission, 2018) and falls after. Every run, and
+20CRv3's own rain, has its wettest day on 20 July, the last scored day. The late build-up is common to the driver and both models, which points
 to the timing of the monsoon surge in 20CRv3 rather than to either regional model; the
 20CRv3 ensemble members (below) are the way to test that.
 
@@ -73,10 +73,10 @@ on the setting, so the large-scale conditions for heavy rain were there in both.
 covers the coastal plain and the Ghats from 17.5 to 19.5° N, Mumbai included. ERA5-driven runs
 concentrate theirs in a narrow north-south band on the Ghats crest (WRF 12 km bias -17%,
 WRF 3 km FSS 0.55 at 115.6 mm, the best scores of the experiment for this event) and leave the
-coast with a fraction of the observed rain. 20CRv3-driven runs are 58-84% too dry everywhere.
+coast with a fraction of the observed rain. 20CRv3-driven runs are 58-84% too dry.
 
 **Fig. 7** `fig5_E2_mumbai2005_daily.png`. On IMD day 26 July (the day before) the ERA5-driven
-runs come close to the observations (WRF 3 km box maximum about 400 mm against about 415 mm).
+WRF runs come close to the observations (WRF 3 km box maximum about 400 mm against about 415 mm).
 On IMD day 27 July, the cloudburst day, observed rain jumps to a box mean of about 137 mm and
 a box maximum of 732.5 mm; every ERA5-driven run goes down instead, and the 20CRv3-driven runs
 stay flat at a fraction of it.
@@ -107,7 +107,7 @@ future work.
   loses them (FSS 0.38 to 0.14).
 - RegCM5 at 3 km is as wet or wetter than at 12 km and raises the peak ratio in all three
   cases (E1 0.52 to 0.62, E2 ERA5 0.23 to 0.41), but its pattern correlation drops (E1 0.80
-  to 0.49, E2 ERA5 0.53 to 0.25) and its heaviest cell lands 110-315 km from the observed one.
+  to 0.49, E2 ERA5 0.53 to 0.25) and its heaviest cell lands 111-315 km from the observed one.
 
 Supplementary: **Fig. S1, S2** `fig4_<event>_native.png`, the event totals on the 3 km grids
 with terrain contours. Caption notes: the east-west streaks over the sea lie along the
@@ -126,8 +126,8 @@ neither affects the scores, which use IMD land points only.
   with the next observed day. The date-label check found it from the data; the scorer now
   refuses to run when the check fails (`docs/validation.md` item 23).
 - **Criteria fixed before the results.** H1-H5 and their thresholds were committed in
-  `docs/metrics.md` on 15 October (260f8c9), before any run finished, have not been changed
-  since, and are reported in full, failures included.
+  `docs/metrics.md` on 15 October 2026 (UTC, 260f8c9), before any of the nine runs was
+  started, have not been changed since, and are reported in full, failures included.
 
 ## Limitations to state
 

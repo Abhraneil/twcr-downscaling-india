@@ -6,24 +6,25 @@ before 1950 as well as today?
 
 | | E1: Kerala, July 1924 | E2: Mumbai, 26 July 2005 |
 |---|---|---|
-| Era | pre-1950 (only 20CRv3 exists) | 1981-2015 (20CRv3 and ERA5) |
+| Era | 1924, before ERA5 begins (1940) | 2005, both drivers available |
 | Drivers | 20CRv3 | 20CRv3, ERA5 (control) |
 | Models | WRF 4.5, RegCM5 | WRF 4.5, RegCM5 |
 | Resolutions | 12 km and 3 km | 12 km and 3 km |
 | Scored against | IMD 0.25 deg daily rainfall, 7 days | IMD 0.25 deg daily rainfall, 4 days |
 
-Nine model runs, all scored on the same IMD cells with the same metrics, against five
-criteria committed before any run finished (`docs/metrics.md`, commit `260f8c9`).
+Nine model runs, scored within each event on the same IMD cells with the same metrics,
+against five criteria committed before any of the nine runs was started
+(`docs/metrics.md`, commit `260f8c9`).
 
 **White paper:** [`docs/whitepaper/whitepaper.pdf`](docs/whitepaper/whitepaper.pdf)
 
 ## Results
 
-1. **The 1924 flood is rebuilt from surface pressure.** 20CRv3's own rain is weak and
+1. **The 1924 rain pattern is rebuilt from surface pressure, too dry and too late.** 20CRv3's own rain is weak and
    smooth (bias -80%, pattern correlation 0.51). Every downscaled run puts a band of heavy
    rain along the Western Ghats: at 12 km both models reach r = 0.80-0.83 with a bias of
-   -39%, and all four runs add skill over the driver. The modelled rain is still building
-   two to three days after the observed peak, as is 20CRv3's own rain.
+   -39%, and all four runs add skill over the driver. The modelled rain peaks three days
+   after the observed peak, as does 20CRv3's own rain.
 2. **The 2005 cloudburst is not reproduced** by any model, resolution or driver. Within
    50 km of Santacruz the largest 24 h total of any run is 163 mm, against 944 mm observed.
    ERA5-driven runs put their heavy rain on the Ghats crest rather than the coastal plain;
@@ -138,4 +139,4 @@ RegCM5 (ICTP).
 ## Citation and licence
 
 Cite with [`CITATION.cff`](CITATION.cff). Code: MIT (see `LICENSE`). Documentation and
-results: CC BY 4.0.
+results: [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
