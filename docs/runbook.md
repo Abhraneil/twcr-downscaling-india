@@ -75,6 +75,22 @@ $PYTHON scripts/scoring/story_figures.py --runs-root $RUN_ROOT   # results/figur
 `score_all.py` first checks the IMD date convention against the data and refuses to score
 if `observations.imd_label` disagrees (validation item 23).
 
+## Optional, post hoc: WRF physics sensitivity for E2 (not part of H1-H5)
+
+One extra WRF run of E2 with ERA5, WSM6 + Grell-Devenyi instead of Thompson + Grell-Freitas
+(the schemes Kumar et al. 2008 used when they reproduced the Santacruz total). About 30 h on
+12 ranks on the shared node, like the baseline. Its output stays out of `data/daily`,
+`results/scores.csv` and the hypotheses.
+
+```bash
+source scripts/run/env.sh
+nohup bash scripts/sensitivity/wsm6gd.sh > $TWCR_HOME/logs/sens_wsm6gd.log 2>&1 &
+head -12 $TWCR_HOME/logs/sens_wsm6gd.log     # the namelist diff: exactly mp_physics and cu_physics
+bash scripts/run/status.sh                   # listed as "WRF E2_mumbai2005 ERA5 wsm6gd"
+# when it has finished:
+$PYTHON scripts/sensitivity/score_wsm6gd.py --runs-root $RUN_ROOT   # results/sensitivity/
+```
+
 ## Remaining schedule
 
 | Day | Work |

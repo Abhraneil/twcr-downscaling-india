@@ -20,6 +20,9 @@ for ev, e in cfg["events"].items():
     span = (s1 - s0).total_seconds()
     for drv in e["drivers"]:
         items = [(f"WRF {ev} {drv}", runs / "wrf" / f"{ev}_{drv}" / "rsl.error.0000", "wrf")]
+        # exploratory variants (run_wrf.sh with WRF_TAG): wrf/<event>_<driver>_<tag>
+        items += [(f"WRF {ev} {drv} {p.name[len(ev) + len(drv) + 2:]}", p / "rsl.error.0000", "wrf")
+                  for p in sorted((runs / "wrf").glob(f"{ev}_{drv}_*")) if p.is_dir()]
         items += [(f"RegCM {ev} {drv} {r}", runs / "regcm" / f"{ev}_{drv}_{r}" / "regcm.log", "regcm") for r in ("12km", "03km")]
         for name, log, kind in items:
             if not log.exists():
