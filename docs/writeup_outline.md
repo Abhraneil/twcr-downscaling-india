@@ -7,10 +7,10 @@ Results order, figure captions and the numbers to quote: `docs/story.md`.
    H1-H5 outcome in one sentence each.
 2. **Why 20CRv3**: only 3-D reanalysis before 1940; surface-pressure-only assimilation;
    what that means for moisture and rain (Slivinski et al. 2019, 2021).
-3. **Prior work**: Stucki et al. 2020 (WRF from 20CR, Alpine floods, ensemble mean as
-   minimum-error choice); 1816 WRF + DA study; Kong and Bi 2015 (centennial WRF from 20CR,
-   China); CCLM downscaling of 20CR for Central European floods. Gap: none over India,
-   none comparing two regional models.
+3. **Prior work**: Stucki et al. 2020 (WRF from 20CR v2c, Alpine Vb cyclones); Stucki et
+   al. 2024 (20CRv3 + WRF + 3D-Var, 1816); Kong and Bi 2015 (WRF from 20CR, China,
+   1981-2010 means). Gap: none over India, none comparing two regional models.
+   The white paper (`docs/whitepaper/`) is the write-up; references there are verified.
 4. **Design**: `docs/experiment_design.md` condensed: events and why rainfall, drivers,
    resolutions, model configurations table, run matrix.
 5. **Verification method**: IMD grid, remap, 03 UTC windows and the label check, metric

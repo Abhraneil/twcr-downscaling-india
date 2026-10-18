@@ -1,0 +1,18 @@
+cff-version: 1.2.0
+message: "If you use this experiment, its code or its results, please cite it as below."
+title: "Downscaling 20CRv3 over India: two extreme monsoon rainfall events, WRF and RegCM5"
+type: software
+authors:
+  - given-names: "Likith Muni"
+    family-names: "Narakala"
+license: MIT
+version: "0.9"
+date-released: "2026-10-19"
+keywords:
+  - 20CRv3
+  - Twentieth Century Reanalysis
+  - dynamical downscaling
+  - WRF
+  - RegCM5
+  - Indian monsoon
+  - extreme rainfall
