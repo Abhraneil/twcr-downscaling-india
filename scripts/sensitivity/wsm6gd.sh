@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # POST-HOC, EXPLORATORY: not part of the pre-registered runs or of H1-H5 (docs/metrics.md).
 #
-# E2 (Mumbai 2005), ERA5-driven WRF again with the microphysics and cumulus schemes Kumar et
-# al. (2008, QJRMS) used when they reproduced the 944 mm Santacruz total from the same start
-# time (00 UTC 24 July 2005): WSM6 (mp_physics=6) on both domains and Grell-Devenyi
+# E2 (Mumbai 2005), ERA5-driven WRF again with the microphysics and cumulus schemes of Kumar
+# et al. (2008, QJRMS), whose WRF 2.1 run from the same start time (00 UTC 24 July 2005)
+# captured the Santacruz rainfall: WSM6 (mp_physics=6) on both domains and Grell-Devenyi
 # (cu_physics=93) at 12 km, none at 3 km. Everything else (domains, driver, dates, radiation,
 # PBL, land surface, output) is the baseline namelist; the baseline is Thompson (8) and
 # Grell-Freitas (3). Both schemes change together, so a difference says the physics choice

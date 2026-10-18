@@ -78,7 +78,7 @@ if `observations.imd_label` disagrees (validation item 23).
 ## Optional, post hoc: WRF physics sensitivity for E2 (not part of H1-H5)
 
 One extra WRF run of E2 with ERA5, WSM6 + Grell-Devenyi instead of Thompson + Grell-Freitas
-(the schemes Kumar et al. 2008 used when they reproduced the Santacruz total). About 30 h on
+(the schemes of Kumar et al. 2008, whose run captured the Santacruz rainfall). About 30 h on
 12 ranks on the shared node, like the baseline. Its output stays out of `data/daily`,
 `results/scores.csv` and the hypotheses.
 

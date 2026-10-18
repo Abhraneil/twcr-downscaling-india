@@ -85,10 +85,14 @@ stay flat at a fraction of it.
 the 24 h in which 944 mm was measured. The largest 24 h total of any run within 50 km is
 163 mm (RegCM5 3 km driven by 20CRv3); with ERA5 the largest is 91 mm (WRF 3 km).
 
-Context for the discussion: Kumar et al. (2008, QJRMS) ran WRF from the same start time
-(00 UTC 24 July 2005), driven by NCEP FNL, and reproduced the Santacruz total with WSM6
-microphysics and the Grell-Devenyi cumulus scheme; with Kain-Fritsch or Betts-Miller-Janjic
-the rain was underestimated by more than half. The event is known to be sensitive to the
+Context for the discussion: Kumar et al. (2008, QJRMS) ran WRF 2.1 from the same start time
+(00 UTC 24 July 2005), driven by 1° NCEP FNL, on 33/11/3.6 km domains (the 3.6 km one-way
+nest started at 12 UTC 25 July), with WSM6 microphysics, Grell-Devenyi cumulus at 33 and
+11 km and none at 3.6 km, RRTM/Dudhia radiation and the 5-layer thermal-diffusion land
+surface. They report that this run "successfully captured" the Santacruz rainfall (the text
+gives no simulated 24 h total; a run without the Ghats, at about 517 mm, is described as
+about half of the control), and that Kain-Fritsch or Betts-Miller-Janjic underestimated the
+rain by more than 50%. The event is known to be sensitive to the
 physics, and our configuration (Thompson + Grell-Freitas in WRF) is one that misses it. A
 single post-hoc run tests whether the physics alone explains the miss:
 `scripts/sensitivity/wsm6gd.sh` (results in `results/sensitivity/`, not part of H1-H5).
