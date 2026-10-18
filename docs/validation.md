@@ -184,6 +184,9 @@ check on the real 20CRv3 data (`hpc_setup.sh smoke`).
     original stops with `Index '5' of dimension 3 of array 'tcg_racg' above upper bound of 1` at
     `prr_rcg(k) = tcg_racg(...)`, the lookup that the crash instruction's `MIN` follows
     (`prr_rcg(k) = MIN(DBLE(rg(k)*odts), prr_rcg(k))`); the patched module completes the step.
+    All three WRF runs were then rerun from the initial time with the patched build and
+    finished without a single stop (`resumes.log`: 0), well past the old crash times:
+    E1 216 h (old crash 117.6 h), E2 20CRv3 144 h (74 h), E2 ERA5 144 h (8.3 and 9.05 h).
 
 22. **WRF writes restart files every 12 simulated hours and history in 12-hour files.**
     Introduced after item 21, when all three runs had to start over: `scripts/run/run_wrf.sh`
@@ -194,6 +197,15 @@ check on the real 20CRv3 data (`hpc_setup.sh smoke`).
     lets a continuation rewrite exactly the files from the restart time on
     (`write_hist_at_0h_rst = .true.`), and lets `offload.sh` move the files before the latest
     restart while WRF runs. Neither changes the simulated fields.
+
+23. **IMD date labels are 'backward'.** `check_imd_convention.py` found the Mumbai box maximum
+    (732.5 mm) on label 2005-07-27 (25: 28.9, 26: 24.8, 28: 56.9 mm), so label D holds the 24 h
+    ending 03 UTC (08:30 IST) on D, as the 944 mm Santacruz report of the morning of 27 July
+    requires. The config had been set to 'forward' before any data were seen. The first scoring
+    run on 19 October was made with that setting although the check had failed, which compared
+    every model day with the following observed day; it was discarded. `observations.imd_label`
+    is now 'backward', and `score_all.py` runs the check itself and refuses to score when it
+    fails.
 
 ## Measured cost
 
