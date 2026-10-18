@@ -14,6 +14,7 @@ import xarray as xr
 import extract_precip as EP
 import plot_event as PE
 import score_all as SA
+import check_imd_convention as CIC
 
 EV = "E2_mumbai2005"
 
@@ -51,17 +52,17 @@ def fake_wrfout(path, shift):
 @pytest.fixture
 def sandbox(tmp_path, monkeypatch):
     data = tmp_path / "data"
-    for mod in (EP, SA, PE):
+    for mod in (EP, SA, PE, CIC):
         monkeypatch.setattr(mod, "DATA", data)
     for mod in (SA, PE):
         monkeypatch.setattr(mod, "ROOT", tmp_path)
-    # IMD file for 2005 (forward labels: label D = 03Z D -> 03Z D+1)
+    # IMD file for 2005 (backward labels: label D = 03Z D-1 -> 03Z D, as in the real data)
     lat, lon = 6.5 + 0.25 * np.arange(129), 66.5 + 0.25 * np.arange(135)
     t = np.arange("2005-01-01", "2006-01-01", dtype="datetime64[D]")
     rain = np.zeros((t.size, 129, 135), "f4")
     LA, LO = np.meshgrid(lat, lon, indexing="ij")
     for k in range(4):
-        idx = int((np.datetime64("2005-07-25") - t[0]).astype(int)) + k
+        idx = int((np.datetime64("2005-07-26") - t[0]).astype(int)) + k
         rain[idx] = truth(LA, LO, 0.0, k)
     rain[:, LO < 72.6] = np.nan              # the sea is missing in IMD
     (data / "obs").mkdir(parents=True)

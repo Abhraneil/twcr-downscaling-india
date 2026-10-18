@@ -72,7 +72,9 @@ observations:
   # Which 24 h window an IMD date label covers. 'forward': label D = 03Z D -> 03Z D+1;
   # 'backward': label D = 03Z D-1 -> 03Z D. Verified from the data by
   # scripts/scoring/check_imd_convention.py before any scoring (see docs/metrics.md).
-  imd_label: forward
+  # Verified 19 Oct 2026: the Mumbai box maximum (732.5 mm) is on label 2005-07-27, i.e. the
+  # 24 h ending 08:30 IST 27 July, so labels are 'backward' (docs/validation.md item 23).
+  imd_label: backward
   secondary_E2: TRMM 3B42 daily (optional, 1998 onward)
 
 scoring:
