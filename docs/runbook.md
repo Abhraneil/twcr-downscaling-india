@@ -79,11 +79,12 @@ if `observations.imd_label` disagrees (validation item 23).
 
 | Day | Work |
 |---|---|
-| Wed 21 Oct | buffer for reruns |
+| Mon 19 Oct | no further runs (decided); white paper draft, README, results in the repository |
+| Tue 20 - Wed 21 Oct | final results from the HPC (`scores.csv`, redrawn fig 2), review of the paper |
 | Thu 22 Oct | freeze results; daily fields + driver subsets to Zenodo |
-| Fri 23 Oct | README results section, CI green, tag `v1.0` |
+| Fri 23 Oct | CI green, tag `v1.0` |
 | Sat 24 Oct | repository public |
-| Sun 25 - Mon 26 Oct | write-up (`docs/writeup_outline.md`) |
+| Sun 25 - Mon 26 Oct | white paper final (`docs/whitepaper/`) |
 
 ## Failure handling
 

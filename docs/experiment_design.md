@@ -8,10 +8,10 @@ before 1950, when 20CRv3 is the only three-dimensional reanalysis available?
 
 20CRv3 assimilates only surface pressure, with prescribed SST, sea ice and radiative
 forcing (Slivinski et al. 2019, 2021). Its circulation is constrained by observations;
-its moisture and rainfall come from the GFS model physics. Dynamical downscaling of
-20CR has been demonstrated for historical heavy precipitation in the Alps (Stucki et
-al. 2020) and for 1816 in Europe, but not over India and not with two regional models
-side by side. This experiment does both, on two events, with pre-registered scores.
+its moisture and rainfall come from the GFS model physics. WRF has been driven by 20CR
+(v2c) for three Vb cyclones over the Alps (Stucki et al. 2020) and by 20CRv3, with and
+without data assimilation, for an 1816 cold-air outbreak (Stucki et al. 2024), but not
+over India and not with two regional models side by side. This experiment does both, on two events, with pre-registered scores.
 
 ## Events
 
@@ -49,8 +49,8 @@ historical driver, which is exactly what E1 cannot tell us on its own.
 | Soil | Noah 4 layers (0-10-40-100-200 cm) | 4 layers (0-7-28-100-289 cm) |
 | SST | prescribed HadISST2 (skin temperature over ocean) | ERA5 SST, skin temperature over land |
 
-The ensemble mean is used, as in Stucki et al. (2020) and the 1816 study: it is the
-minimum-error estimate and costs one run instead of 80. Individual members are a
+The ensemble mean is used: it is the minimum-error estimate and costs one run instead
+of 80. Individual members are a
 follow-up (they come as whole-globe yearly tarballs at NERSC and cannot be subset in
 time for the 24 October deadline).
 
@@ -59,7 +59,7 @@ time for the 24 October deadline).
 | Level | Grid | Why |
 |---|---|---|
 | Intermediate | **12 km** (0.11 deg class) | CORDEX-CORE resolution; ratio about 9 to the 1 deg driver, within the range used for single-step reanalysis downscaling; convection parameterised |
-| High | **3 km** | convection-permitting; ratio 4 to the 12 km grid; the scale at which Kumar et al. (2008) reproduced the Mumbai record (3.6 km) |
+| High | **3 km** | convection-permitting; ratio 4 to the 12 km grid; close to the 3.6 km at which Kumar et al. (2008) captured the Mumbai record |
 
 The 12 km grid is one shared domain for both events and both models
 (271 x 241 points, Mercator true at 15 N, 1.8-27.5 N, 60.9-91.1 E). Each event has its
@@ -123,9 +123,10 @@ own rainfall as the no-downscaling baseline. Compute and storage: `docs/budget.m
 
 - Slivinski et al. 2019, QJRMS, doi:10.1002/qj.3598 (20CRv3 system)
 - Slivinski et al. 2021, J. Climate 34:1417-1438 (20CRv3 evaluation)
-- Stucki et al. 2020, NHESS 20:35 (WRF downscaling of 20CR, 1876/1910/2005 floods)
+- Stucki et al. 2020, NHESS 20:35-57 (WRF driven by 20CR v2c, 2005/1910/1876 Vb cyclones over the Alps)
+- Stucki et al. 2024, Clim. Past 20:2327-2348 (20CRv3 + WRF + 3D-Var, 1816 cold-air outbreak)
 - Pai et al. 2014, MAUSAM 65:1-18 (IMD 0.25 deg rainfall)
 - Kumar et al. 2008, QJRMS 134:1897-1910 (WRF simulation of 26 July 2005, Mumbai)
-- Coppola, Giorgi, Giuliani et al. 2024, "The Fifth Generation Regional Climate Modeling System, RegCM5", ESS Open Archive, doi:10.22541/essoar.170542078.80092084/v1
+- Giorgi et al. 2023, JGR Atmospheres 128:e2022JD038199 (RegCM5 description)
 - Skamarock et al. 2019, NCAR/TN-556+STR (WRF version 4)
 - Pham et al. 2021, GMD 14:985-1005 (ICON-CLM)
