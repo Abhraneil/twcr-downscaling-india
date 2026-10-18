@@ -1,6 +1,7 @@
 # Write-up outline (due 26 October 2026)
 
 Target: 6-8 pages, figures from `results/figures/`, numbers only from `results/scores.csv`.
+Results order, figure captions and the numbers to quote: `docs/story.md`.
 
 1. **Summary** (150 words): question, two events, two models, two resolutions, the
    H1-H5 outcome in one sentence each.
