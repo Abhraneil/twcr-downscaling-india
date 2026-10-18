@@ -22,6 +22,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from common import DATA, ROOT, load_config  # noqa: E402
 import metrics as M  # noqa: E402
+import check_imd_convention  # noqa: E402
 
 
 def obs_for_event(cfg, ev, lat, lon):
@@ -55,6 +56,11 @@ def score_run(m, o, mask, w, lat, lon, thresholds, windows):
 
 
 def main():
+    # The IMD date convention decides which observed day each model day is compared with;
+    # a wrong setting shifts every comparison by 24 h, so nothing is scored unless the data
+    # confirm the configured convention.
+    if check_imd_convention.main() != 0:
+        sys.exit("IMD date-label check failed: fix observations.imd_label in config/experiment.yaml")
     cfg = load_config()
     sc = cfg["scoring"]
     out = []
