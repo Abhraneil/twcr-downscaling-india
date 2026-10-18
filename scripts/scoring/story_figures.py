@@ -54,6 +54,7 @@ RAIN_NORM = BoundaryNorm(RAIN_LEVELS, RAIN_CMAP.N)
 SANTACRUZ = (19.0896, 72.8656)            # IMD Santacruz observatory, Mumbai
 SANTACRUZ_MM = 944.0                      # 24 h to 08:30 IST 27 July 2005
 CITIES = {"E1_kerala1924": [("Aluva", 10.11, 76.35)], "E2_mumbai2005": [("Mumbai", 19.08, 72.88)]}
+SLP_MAX_HGT = 1000.0                      # fig 2: no sea-level pressure contours over ground higher than this (m)
 plt.rcParams.update({"font.size": 8, "axes.edgecolor": INK2, "axes.labelcolor": INK, "xtick.color": INK2,
                      "ytick.color": INK2, "axes.titlesize": 9, "axes.titleweight": "bold",
                      "legend.frameon": False, "savefig.dpi": 200})
@@ -275,11 +276,14 @@ def fig_synoptic(cfg, out):
             u = sub["U"].values[:, k850].mean(0)
             v = sub["V"].values[:, k850].mean(0)
             slp = sub["PMSL"].values.mean(0) / 100.0
+            if "SOILHGT" in sub:                 # sea-level pressure is an extrapolation over high ground
+                hgt = sub["SOILHGT"].values
+                slp = np.where((hgt if hgt.ndim == 2 else hgt.mean(0)) > SLP_MAX_HGT, np.nan, slp)
             lv = [20, 30, 40, 45, 50, 55, 60, 65, 70, 75]
             cm = ListedColormap(["#ffffff"] + BLUES[1:12:1][:len(lv) - 2])
             cm.set_over(BLUES[12])
             pc = ax.contourf(lon, lat, wv, levels=lv, cmap=cm, norm=BoundaryNorm(lv, cm.N), extend="max")
-            cs = ax.contour(lon, lat, slp, levels=np.arange(np.floor(slp.min()), np.ceil(slp.max()) + 1, 2),
+            cs = ax.contour(lon, lat, slp, levels=np.arange(np.floor(np.nanmin(slp)), np.ceil(np.nanmax(slp)) + 1, 2),
                             colors=INK2, linewidths=0.6)
             ax.clabel(cs, fmt="%d", fontsize=6)
             step = max(1, int(round(1.5 / abs(lon[1] - lon[0]))))
@@ -295,8 +299,9 @@ def fig_synoptic(cfg, out):
         cb = fig.colorbar(pc, ax=axes[0], shrink=0.85, pad=0.02, extend="max")
         cb.set_label("column water vapour (kg m⁻²)")
         when = f"{t0:%d %b %Y %H} UTC to {t1:%d %b %H} UTC"
-        fig.suptitle(f"{ev['title']}: wettest observed day ({when}), driver mean\n"
-                     "shading: column water vapour; contours: sea-level pressure (hPa); arrows: 850 hPa wind",
+        fig.suptitle(f"{ev['title']}\nwettest observed day ({when}), driver mean\n"
+                     f"shading: column water vapour; contours: sea-level pressure (hPa; none over ground above "
+                     f"{SLP_MAX_HGT:g} m);\narrows: 850 hPa wind; black line: the driver's own coastline",
                      fontsize=8)
         fig.savefig(out / f"fig2_{ev_name}_synoptic.png", bbox_inches="tight")
         plt.close(fig)

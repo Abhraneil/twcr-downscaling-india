@@ -211,3 +211,25 @@ check on the real 20CRv3 data (`hpc_setup.sh smoke`).
 
 RegCM5 MOLOCH at 12 km: about 4.8 microseconds per grid-point-level step per core
 (2 cores, 161 x 141 x 30, dt 90 s), inside the 4-8 us bracket used in `docs/budget.md`.
+
+The nine production runs (from each run's `timing.txt`; WRF with the Thompson fix, no resumes;
+model integration only, without real.exe or the RegCM5 pre-processing). Core-hours are ranks
+x wall time. The node was shared throughout (load average about 220 on 128 logical CPUs,
+including another user's 32 wrf.exe), so these are upper bounds for a dedicated node.
+
+| Model | Event | Driver | Sim h | Ranks | Wall h | Core-hours | Wall h per sim day |
+|---|---|---|---|---|---|---|---|
+| WRF 12+3 km | E1_kerala1924 | 20CRv3 | 216 | 20 | 28.8 | 576 | 3.2 |
+| WRF 12+3 km | E2_mumbai2005 | 20CRv3 | 144 | 12 | 27.6 | 332 | 4.6 |
+| WRF 12+3 km | E2_mumbai2005 | ERA5 | 144 | 12 | 29.6 | 356 | 4.9 |
+| RegCM5 12 km | E1_kerala1924 | 20CRv3 | 216 | 20 | 3.2 | 64 | 0.4 |
+| RegCM5 3 km | E1_kerala1924 | 20CRv3 | 216 | 20 | 13.2 | 264 | 1.5 |
+| RegCM5 12 km | E2_mumbai2005 | 20CRv3 | 144 | 20 | 1.4 | 28 | 0.2 |
+| RegCM5 3 km | E2_mumbai2005 | 20CRv3 | 144 | 20 | 6.3 | 126 | 1.1 |
+| RegCM5 12 km | E2_mumbai2005 | ERA5 | 144 | 20 | 1.5 | 29 | 0.2 |
+| RegCM5 3 km | E2_mumbai2005 | ERA5 | 144 | 20 | 5.9 | 117 | 1.0 |
+| **Total** | 9 runs | | | | | **1,891** | |
+
+The budget estimate was 741-1,482 core-hours; the excess (28% above the upper end) is mostly
+the WRF runs (1,264 core-hours against 500-1,000 estimated), which ran on a node with more
+processes than cores.
