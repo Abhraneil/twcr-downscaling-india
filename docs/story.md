@@ -92,10 +92,10 @@ nest started at 12 UTC 25 July), with WSM6 microphysics, Grell-Devenyi cumulus a
 surface. They report that this run "successfully captured" the Santacruz rainfall (the text
 gives no simulated 24 h total; a run without the Ghats, at about 517 mm, is described as
 about half of the control), and that Kain-Fritsch or Betts-Miller-Janjic underestimated the
-rain by more than 50%. The event is known to be sensitive to the
-physics, and our configuration (Thompson + Grell-Freitas in WRF) is one that misses it. A
-single post-hoc run tests whether the physics alone explains the miss:
-`scripts/sensitivity/wsm6gd.sh` (results in `results/sensitivity/`, not part of H1-H5).
+rain by more than 50%. The event is known to be sensitive to the cumulus scheme, and our
+configuration (Thompson + Grell-Freitas in WRF) is one that misses it. Whether the physics
+alone explains the miss was not tested here (no further runs); it is the first item of
+future work.
 
 ## Act 3: does 3 km help?
 
@@ -142,7 +142,8 @@ a station total, compared with grid-point and 50 km values.
   miss are questions of timing and of chance in convection; downscaling a set of members gives
   a spread of rain, so an observed extreme can be judged against a distribution instead of one
   run.
-- **Physics as part of the ensemble.** Kumar et al. (2008) and the post-hoc run (if made) show
-  how much the microphysics and cumulus choice matters for coastal convective extremes.
+- **Physics as part of the ensemble.** Kumar et al. (2008) show how much the cumulus choice
+  matters for this coastal convective extreme; a physics ensemble (starting with WSM6 +
+  Grell-Devenyi in our setup) would separate physics from driver and chance.
 - **Bias correction of the downscaled 1924 rain** (-39% in three of four runs), checked against
   the IMD grid of other pre-1950 monsoon spells.

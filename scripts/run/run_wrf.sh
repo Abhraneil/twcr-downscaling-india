@@ -16,19 +16,13 @@
 #
 # Calling the script again on a run that has usable restart files continues it; FRESH=1
 # starts over from real.exe.
-#
-# Exploratory variants (not part of the pre-registered runs): WRF_TAG=<tag> WRF_SED=<sed -E
-# script> runs in wrf/<event>_<driver>_<tag> with every namelist.input edited by WRF_SED, e.g.
-# scripts/sensitivity/wsm6gd.sh. Without WRF_TAG nothing changes.
 set -euo pipefail
 source "$(dirname "$0")/env.sh"
 EV=$1; DRV=$2
 [ -x "$WRF_DIR/main/wrf.exe" ] || { echo "WRF_DIR=$WRF_DIR has no main/wrf.exe (edit scripts/run/site.env)"; exit 1; }
 MAX_RESUMES=${WRF_MAX_RESUMES:-6}
 W=$RUN_ROOT/wps/${EV}_${DRV}
-TAG=${WRF_TAG:-}
-[ -z "$TAG" ] || [ -n "${WRF_SED:-}" ] || { echo "WRF_TAG=$TAG needs WRF_SED (the namelist edits)"; exit 1; }
-D=$RUN_ROOT/wrf/${EV}_${DRV}${TAG:+_$TAG}
+D=$RUN_ROOT/wrf/${EV}_${DRV}
 ls "$W"/met_em.d02.* > /dev/null 2>&1 || { echo "no met_em files in $W: run run_wps.sh first"; exit 1; }
 mkdir -p "$D" && cd "$D"
 if [ "${FRESH:-0}" != 1 ] && grep -aqs "SUCCESS COMPLETE WRF" rsl.error.0000; then echo "WRF $EV $DRV already finished (FRESH=1 reruns it)"; exit 0; fi
@@ -38,9 +32,6 @@ done
 ln -sf "$WRF_DIR/main/real.exe" "$WRF_DIR/main/wrf.exe" .
 ln -sf "$W"/met_em.d0* .
 NLEV=$($PYTHON -c "import netCDF4,glob; print(netCDF4.Dataset(sorted(glob.glob('met_em.d01.*'))[0]).dimensions['num_metgrid_levels'].size)")
-nl() {   # namelist on stdin -> run's namelist.input
-  sed "s#NUM_METGRID_LEVELS#${NLEV}#" | if [ -n "$TAG" ]; then sed -E "$WRF_SED"; else cat; fi > namelist.input
-}
 log() { echo "[$(date '+%a %H:%M')] $*" | tee -a resumes.log; }
 
 last_d02_time() {   # model time of the last d02 step in this attempt's rank-0 log
@@ -82,12 +73,12 @@ remove_outputs() {  # (also the copies of files the mover has already moved)
 
 if [ "${FRESH:-0}" = 1 ] || [ -z "$(latest_restart)" ]; then
   remove_outputs; rm -rf attempts resumes.log timing.txt
-  nl < "$REPO/namelists/wrf/namelist.input.${EV}_${DRV}"
+  sed "s#NUM_METGRID_LEVELS#${NLEV}#" "$REPO/namelists/wrf/namelist.input.${EV}_${DRV}" > namelist.input
   cp "$REPO/namelists/wrf/iofields.txt" .
   $MPIRUN -np "$NPROCS" ./real.exe
   grep -q "SUCCESS COMPLETE REAL_EM" rsl.error.0000 || { echo "real.exe failed, see $D/rsl.error.0000"; tail -20 rsl.error.0000; exit 1; }
   rm -rf real_logs && mkdir real_logs && mv rsl.* real_logs/
-  log "start $EV $DRV${TAG:+ ($TAG)} on $NPROCS ranks"
+  log "start $EV $DRV on $NPROCS ranks"
 else
   log "continuing $EV $DRV from the restart files at $(latest_restart)"
 fi
@@ -98,9 +89,9 @@ trap '[ -n "$PRUNER" ] && kill "$PRUNER" 2>/dev/null; true' EXIT
 while :; do
   R=$(latest_restart)
   if [ -n "$R" ]; then
-    $PYTHON "$REPO/scripts/generate_namelists.py" --wrf-restart "$EV" "$DRV" "$R" | nl
+    $PYTHON "$REPO/scripts/generate_namelists.py" --wrf-restart "$EV" "$DRV" "$R" | sed "s#NUM_METGRID_LEVELS#${NLEV}#" > namelist.input
   else
-    nl < "$REPO/namelists/wrf/namelist.input.${EV}_${DRV}"
+    sed "s#NUM_METGRID_LEVELS#${NLEV}#" "$REPO/namelists/wrf/namelist.input.${EV}_${DRV}" > namelist.input
   fi
   cp "$REPO/namelists/wrf/iofields.txt" .
   ( while sleep 600; do verify_restarts; prune_restarts; done ) & PRUNER=$!
