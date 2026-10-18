@@ -70,7 +70,10 @@ for EV in E1_kerala1924 E2_mumbai2005; do
 done
 $PYTHON scripts/scoring/score_all.py        # results/scores.csv, SCORECARD.md, HYPOTHESES.md
 $PYTHON scripts/scoring/plot_event.py       # results/figures/
+$PYTHON scripts/scoring/story_figures.py --runs-root $RUN_ROOT   # results/figures/story/ (write-up)
 ```
+`score_all.py` first checks the IMD date convention against the data and refuses to score
+if `observations.imd_label` disagrees (validation item 23).
 
 ## Remaining schedule
 
