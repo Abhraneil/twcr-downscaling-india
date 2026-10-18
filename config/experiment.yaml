@@ -45,7 +45,7 @@ events:
     drivers: [20CRv3]                 # ERA5 begins in 1940
     sim_start: "1924-07-12T00:00"
     sim_end: "1924-07-21T00:00"     # RegCM5 needs whole days (mod_params.F90)
-    spinup_hours: 24
+    spinup_hours: 24        # minimum (tests); actual: 27 h from 00 UTC start to the first 03 UTC window
     # Scoring windows are 24 h blocks from 03 UTC (08:30 IST, the IMD observation time).
     score_start: "1924-07-13T03:00"
     score_ndays: 7
@@ -59,7 +59,7 @@ events:
     drivers: [20CRv3, ERA5]
     sim_start: "2005-07-24T00:00"
     sim_end: "2005-07-30T00:00"     # RegCM5 needs whole days
-    spinup_hours: 24
+    spinup_hours: 24        # minimum (tests); actual: 27 h from 00 UTC start to the first 03 UTC window
     score_start: "2005-07-25T03:00"
     score_ndays: 4
     inner_center: {lat: 19.0, lon: 73.5}

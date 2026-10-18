@@ -17,6 +17,8 @@
 \usepackage[round,authoryear]{natbib}
 \usepackage{xcolor}
 \usepackage[hidelinks]{hyperref}
+\hypersetup{pdftitle={Downscaling the Twentieth Century Reanalysis over India},
+  pdfauthor={Likith Muni Narakala}}
 
 \graphicspath{{../../results/figures/story/}}
 \setlist{itemsep=2pt,topsep=4pt}
@@ -35,8 +37,8 @@
 \makeatletter\newcommand{\tablerows}[1]{\@@input #1 }\makeatother  % \input breaks \bottomrule
 
 \title{\textbf{Downscaling the Twentieth Century Reanalysis over India}\\[4pt]
-\large A pre-registered WRF and RegCM5 experiment on the 1924 Kerala flood\\
-and the 26 July 2005 Mumbai cloudburst}
+\large WRF and RegCM5 on the 1924 Kerala flood and the 26 July 2005 Mumbai cloudburst,\\
+scored against criteria fixed in advance}
 \author{\paperauthor\\[2pt]\small\paperaffil}
 \date{White paper, October 2026}
 
@@ -44,25 +46,26 @@ and the 26 July 2005 Mumbai cloudburst}
 \maketitle
 
 \begin{abstract}
-\noindent Before 1940 the only three-dimensional global reanalysis is the NOAA--CIRES--DOE
-Twentieth Century Reanalysis version~3 (\twcr), which assimilates surface pressure alone.
+\noindent Before 1940, atmospheric reanalyses rest on surface observations alone. The
+NOAA--CIRES--DOE Twentieth Century Reanalysis version~3 (\twcr) assimilates only surface
+pressure.
 We test whether two regional climate models, WRF~4.5 and RegCM5, driven by \twcr\ at 12
 and 3\km\ grid spacing, can reconstruct extreme west-coast monsoon rainfall over India.
 Two events are simulated: the Kerala flood of July 1924 and the Mumbai cloudburst of
 26 July 2005, the second also driven by ERA5 to separate driver error from model error.
-All nine runs are scored on the same India Meteorological Department (IMD) 0.25$^\circ$
-cells against five criteria fixed before any simulation was run.
+Within each event all runs are scored on the same India Meteorological Department (IMD)
+0.25$^\circ$ cells, against five criteria committed before any of the nine runs was started.
 For 1924, downscaling turns the driver's weak, smooth rainfall (bias $-80$\%, pattern
 correlation 0.51) into an orographic band along the Western Ghats (correlation 0.80--0.83
-and bias $-39$\% at 12\km) and adds skill in all four runs, but the modelled rain is still
-building two to three days after the observed peak.
+and bias $-39$\% at 12\km) and adds skill in all four runs, but the modelled rain peaks
+three days after the observed peak.
 For 2005, no model, resolution or driver reproduces the cloudburst: the largest 24\,h total
 of any run within 50\km\ of Santacruz is 163\mm, against 944\mm\ observed.
 The 3\km\ grids did not consistently improve on 12\km.
-Rainfall held in place by the terrain can be reconstructed from \twcr; an organised
-convective extreme over the coastal plain was not reproduced in this configuration.
-We also document an out-of-bounds table read in the WRF Thompson microphysics that crashed
-every run, and its fix. Code, namelists, scores and figures are public.
+The spatial pattern of rainfall held in place by the terrain can be reconstructed from
+\twcr, although too dry and too late; an organised convective extreme over the coastal plain
+was not reproduced in this configuration. We also document an out-of-bounds table read in
+the WRF Thompson microphysics that crashed every WRF run, and its fix. Code, namelists, scores and figures are public.
 \end{abstract}
 
 % ==========================================================================================
@@ -70,10 +73,12 @@ every run, and its fix. Code, namelists, scores and figures are public.
 
 Extreme rainfall events from before the satellite era are poorly known beyond the
 station records that captured them. Reanalyses that assimilate upper-air observations
-begin in the 1940s; ERA5 now reaches back to 1940. Before that, the main
-three-dimensional reconstruction of the global atmosphere is the Twentieth Century
-Reanalysis \citep{compo2011}, whose third version \citep[\twcr;][]{slivinski2019}
-assimilates only surface and sea-level pressure observations, with prescribed sea-surface
+begin in the 1940s; ERA5 now reaches back to 1940. Earlier years are covered only by
+reanalyses that assimilate surface observations alone: the Twentieth Century Reanalysis
+\citep{compo2011}, ERA-20C \citep{poli2016} and the coupled CERA-20C
+\citep{laloyaux2018}. We use the most recent of these, version~3 of the Twentieth Century
+Reanalysis \citep[\twcr;][]{slivinski2019}, which assimilates only surface and sea-level
+pressure observations, with prescribed sea-surface
 temperature and sea ice, in an 80-member ensemble. Its circulation is therefore anchored by
 observations, but its moisture and rainfall are products of the forecast model; its
 performance is evaluated by \citet{slivinski2021}. On the 1$^\circ$ grid on which it is
@@ -86,17 +91,17 @@ Century Reanalysis for three Vb cyclones over the Alps, of 2005, 1910 and 1876
 observations, for a cold-air outbreak in the 1816 ``year without a summer''
 \citep{stucki2024}; 20CR has also been downscaled over China for present-day climate means
 \citep{kong2015}. To our knowledge no study has downscaled \twcr\ for a South Asian monsoon
-extreme, compared two regional models on the same verification cells, or fixed its success
-criteria before the simulations were run.
+extreme, and none of the reanalysis downscaling studies above compares two regional models
+on the same verification cells or fixes its success criteria before the simulations.
 
 This white paper reports such an experiment. Two regional models, WRF \citep{skamarock2019}
 and RegCM5 \citep{giorgi2023}, are run at 12\km\ (parameterised convection) and 3\km\
-(convection-permitting) for one pre-1950 event, when \twcr\ is the only possible driver,
-and for one recent event, when the same models can also be driven by ERA5
+(convection-permitting) for one pre-1950 event, before ERA5 begins, and for one recent
+event, when the same models can also be driven by ERA5
 \citep{hersbach2020}. The recent event separates what the models can do from what the
 historical driver allows. Five statements (H1--H5, Section~\ref{sec:verification}) were
-committed to the repository before any run finished, and all outcomes are reported,
-failures included.
+committed to the repository before any of the nine runs was started, and all outcomes are
+reported, failures included.
 
 % ==========================================================================================
 \section{Events}
@@ -105,9 +110,9 @@ failures included.
 heavy monsoon rain over the Western Ghats of central Kerala; the Periyar basin counts it as
 one of only two severe floods in its recent history \citep{sudheer2019}, and the 2018
 floods were described as Kerala's worst since 1924 \citep{hunt2020}. A Central Water
-Commission study places the 1924 storm on 16--18 July, centred at Devikulam, with a
-three-day Kerala-average rainfall of 443\mm, more than the 414\mm\ of 15--17 August 2018
-\citep{cwc2018}. Only \twcr\ can drive a model for this event.
+Commission study describes the storm of 16--18 July 1924 over the High Ranges (Devikulam and
+Munnar), with a three-day Kerala-average rainfall of 443\mm, more than the 414\mm\ of
+15--17 August 2018 \citep{cwc2018}. ERA5 does not reach back to this event.
 
 \paragraph{E2: Mumbai, 26 July 2005.} The Santacruz observatory recorded 944\mm\ in the
 24\,h ending 08:30 IST on 27 July 2005, while Colaba in south Mumbai recorded 73\mm\
@@ -115,8 +120,9 @@ three-day Kerala-average rainfall of 443\mm, more than the 414\mm\ of 15--17 Aug
 contrast together enhanced the rain by more than half, and an offshore mesoscale vortex
 depended on latent heating \citep{kumar2008}. This event is driven by both \twcr\ and ERA5.
 
-Both events are west-coast monsoon rainfall, so between them only the era changes, and
-with it the density of observations behind \twcr. Rainfall was chosen because IMD gridded
+Both events are west-coast monsoon rainfall. Between them the era changes, and with it the
+density of observations behind \twcr; so do the location and, as shown below, the
+mechanism of the heaviest rain. Rainfall was chosen because IMD gridded
 daily rainfall exists from 1901 \citep{pai2014}, so both eras can be verified on the same
 grid.
 
@@ -128,7 +134,7 @@ grid.
   \includegraphics[width=0.66\textwidth]{fig1_domains.png}
   \caption{The shared 12\km\ domain (WRF d01 and the RegCM5 12\km\ grid) over terrain, the
   3\km\ domains of each model for each event (WRF blue, RegCM5 dashed orange) and the
-  scoring boxes (dotted).}
+  scoring boxes (black, finely dashed).}
   \label{fig:domains}
 \end{figure}
 
@@ -171,7 +177,7 @@ Lateral boundary & 5-point relaxation zone & exponential relaxation, 20 (12\km) 
 \end{table}
 
 % ==========================================================================================
-\section{Verification and pre-registered criteria}
+\section{Verification and criteria fixed in advance}
 \label{sec:verification}
 
 All rainfall is compared on the IMD 0.25$^\circ$ daily grid \citep{pai2014}, land cells only.
@@ -194,8 +200,9 @@ $0.5 + f_0/2$, with $f_0$ the observed fraction of cells above the threshold
 \citep{roberts2008}. Added value (AV) is a run's score minus the score of its own driver's
 rainfall on the same cells.
 
-The five criteria below were committed to the repository (commit \texttt{260f8c9},
-\texttt{docs/metrics.md}) before any run finished and have not been changed since.
+The five criteria below were committed to the repository on 15 October 2026 (UTC; commit
+\texttt{260f8c9}, \texttt{docs/metrics.md}), before any of the nine runs was started, and
+the file has not been changed since.
 \begin{description}[leftmargin=2.2em,style=sameline,font=\normalfont\bfseries]
 \item[H1] The models can produce E2 when the driver is good: with ERA5 at 3\km,
   FSS$_{115.6}$ at or above useful and $|$bias$|\le 30$\% for at least one model.
@@ -212,7 +219,7 @@ The five criteria below were committed to the repository (commit \texttt{260f8c9
 % ==========================================================================================
 \section{Results}
 
-\subsection{E1: the 1924 flood rebuilt from surface pressure}
+\subsection{E1: the 1924 rain pattern rebuilt from surface pressure}
 
 \begin{figure}[htbp]
   \centering
@@ -229,7 +236,7 @@ The five criteria below were committed to the repository (commit \texttt{260f8c9
   \includegraphics[width=\textwidth]{fig3_E1_kerala1924_totals.png}
   \caption{E1 rainfall, 13--20 July 1924, on the IMD grid: observed, the \twcr\ rainfall, and
   each downscaled run. Each panel gives its bias, pattern correlation and FSS at
-  115.6\mm\,day$^{-1}$ inside the dashed box.}
+  115.6\mm\,day$^{-1}$ inside the scoring box.}
   \label{fig:e1tot}
 \end{figure}
 
@@ -237,19 +244,19 @@ The five criteria below were committed to the repository (commit \texttt{260f8c9
 a moist column over the Arabian Sea, strong 850\,hPa westerlies onto the Kerala coast and a
 monsoon low near the head of the Bay of Bengal (Fig.~\ref{fig:e1syn}). Its own rainfall,
 however, is a smooth field with no maximum on the Ghats: bias $-80$\%, pattern correlation
-0.51, peak ratio 0.17 and no cell above 115.6\mm\,day$^{-1}$ in the right place
-(FSS$_{115.6}=0$; Fig.~\ref{fig:e1tot}, Table~\ref{tab:e1}).
+0.51, peak ratio 0.17, and no cell in the box above about 60\mm\,day$^{-1}$ on any day
+(Figs.~\ref{fig:e1tot} and \ref{fig:e1day}, Table~\ref{tab:e1}).
 
 Every downscaled run puts a band of heavy rain along the Western Ghats. At 12\km\ both
 models reach a pattern correlation of 0.80--0.83 with a bias of $-39$\%; WRF places its
 event-total maximum 27\km\ from the observed one. Peak ratios rise from 0.17 to 0.52--0.62,
 and the added value in FSS$_{64.5}$ is $+0.58$ to $+0.71$ (H3 passes for all four runs).
-No run reaches 204.5\mm\,day$^{-1}$ in the right place.
+The FSS at 204.5\mm\,day$^{-1}$ is zero for every run.
 
 \begin{table}[htbp]
 \centering\footnotesize
-\caption{E1 scores (\texttt{results/scores.csv}). FSS with a 5-point neighbourhood; S, A, L
-are the SAL components.}
+\caption{E1 scores, generated from the scoring output in \texttt{results/}. FSS with a
+5-point neighbourhood; S, A, L are the SAL components.}
 \label{tab:e1}
 \begin{tabular}{@{}llrrrrrrrrr@{}}
 \toprule
@@ -270,10 +277,11 @@ Run & Driver & Bias (\%) & $r$ & Peak & Max.\ dist.\ (km) & S & A & L & FSS$_{11
 \end{figure}
 
 The main shortcoming is timing (Fig.~\ref{fig:e1day}). The observed box mean rises to about
-104\mm\ on IMD day 17 July, which matches the documented storm of 16--18 July, and falls
-afterwards. Every downscaled run, and \twcr's own rainfall, is still rising on 19--20 July,
-when the observed rain has already dropped by more than half; peaks reach 0.5--0.6 of the
-observed. Because the driver shows the same late build-up, the lag most likely enters
+104\mm\ on IMD day 17 July, which matches the storm of 16--18 July, and falls afterwards.
+Every downscaled run, and \twcr's own rainfall, has its wettest day on 20 July, the last
+scored day and three days after the observed peak, when the observed box mean is below half
+of its peak; their largest daily cell values reach 0.52--0.62 of the observed one. Because
+the driver shows the same late build-up, the lag most likely enters
 through the boundaries, from the timing of the monsoon surge in \twcr, rather than from
 either regional model.
 
@@ -338,8 +346,8 @@ Run & Driver & Bias (\%) & $r$ & Peak & Max.\ dist.\ (km) & S & A & L & FSS$_{11
   \label{fig:scz}
 \end{figure}
 
-Day by day (Fig.~\ref{fig:e2day}), the ERA5-driven runs come close to the observations on
-the day before the event (WRF 3\km\ box maximum about 400\mm\ against about 415\mm). On the
+Day by day (Fig.~\ref{fig:e2day}), the ERA5-driven WRF runs come close to the observations
+on the day before the event (WRF 3\km\ box maximum about 400\mm\ against about 415\mm). On the
 cloudburst day, IMD day 27 July, the observed box mean jumps to about 137\mm\ and the box
 maximum to 732.5\mm; every ERA5-driven run goes down instead, and the \twcr-driven runs stay
 flat. At Santacruz itself (Fig.~\ref{fig:scz}), no run exceeds 100\mm\ in the 24\,h in which
@@ -358,7 +366,7 @@ runs fall below ERA5's own FSS$_{64.5}$ of 0.70 ($-0.02$ to $-0.09$). At the hig
 
 \begin{figure}[htbp]
   \centering
-  \includegraphics[width=0.8\textwidth]{fig6_scores.png}
+  \includegraphics[width=0.95\textwidth]{fig6_scores.png}
   \caption{All headline scores. Shading shows closeness to a perfect score (darker is better),
   computed from the value printed in each cell.}
   \label{fig:scores}
@@ -371,7 +379,8 @@ extremes (peak ratio 0.46 to 0.54, FSS$_{115.6}$ 0.47 to 0.55), but with \twcr\ 
 loses them (FSS$_{115.6}$ 0.38 to 0.14). RegCM5 at 3\km\ is as wet as or wetter than at
 12\km\ and raises the peak ratio in all three cases (E1 0.52 to 0.62; E2 \twcr\ 0.11 to
 0.17; E2 ERA5 0.23 to 0.41), but its pattern correlation drops (E1 0.80 to 0.49; E2 ERA5
-0.53 to 0.25) and its event-total maximum lies 110--315\km\ from the observed one.
+0.53 to 0.25) and its event-total maximum lies 111--315\km\ from the observed one
+(native 3\km\ fields in Fig.~\ref{fig:native}).
 
 % ==========================================================================================
 \section{Discussion}
@@ -388,23 +397,26 @@ missed the coastal maximum.
 \paragraph{What the driver sets.} The late build-up in 1924 is shared by \twcr's own
 rainfall and every downscaled run, so the regional models inherited it. The 2005 synoptic
 setting is similar in both drivers (Fig.~\ref{fig:e2syn}), yet the \twcr-driven runs are
-far drier than the ERA5-driven ones (H2); the difference must lie in boundary details such
-as the strength and moisture of the low-level flow, which we have not diagnosed. Ensemble
+far drier than the ERA5-driven ones (H2). The difference most likely lies in what the
+regional models receive from the driver (initial state, lateral boundaries or sea-surface
+temperature), for example the strength and moisture of the low-level flow; we have not
+diagnosed it. Ensemble
 members of \twcr, rather than its mean, would show how much of either error is chance.
 
 \paragraph{Added value depends on the driver and the threshold.} Over a 1$^\circ$ driver
 without orographic rain, every run adds value. Over ERA5, which already scores FSS 0.70 at
-64.5\mm, downscaling adds nothing at that threshold but substantial skill at
-115.6\mm, consistent with the view that a regional model can add value mainly at scales the
+64.5\mm, downscaling lowers the FSS at that threshold by 0.02--0.09 but adds $+0.28$ to
+$+0.49$ at 115.6\mm, consistent with the view that a regional model can add value mainly at scales the
 driver does not resolve \citep{diluca2012}.
 
 \paragraph{Resolution and physics.} Convection-permitting grids are expected to improve
 heavy, short-duration rainfall \citep{prein2015}; with two cases and daily totals we see
 mixed results, and WRF without a cumulus scheme rained less than WRF with one in every case.
 The 2005 event is known to be sensitive to the physics: with WRF from the same start time,
-\citet{kumar2008} found that the Grell--Dévényi cumulus scheme \citep{grell2002} on their
-33 and 11\km\ domains, with WSM6 microphysics, captured the Santacruz rainfall, while
-Kain--Fritsch or Betts--Miller--Janjić underestimated it by more than half. Our WRF
+\citet{kumar2008}, with the Grell--Dévényi cumulus scheme \citep{grell2002} on their 33 and
+11\km\ domains, WSM6 microphysics and an explicit 3.6\km\ nest, captured the Santacruz
+rainfall; with Kain--Fritsch or Betts--Miller--Janjić on the outer domains the rain was
+underestimated by more than half. Our WRF
 configuration (Thompson and Grell--Freitas) is one that misses it; whether the physics alone
 explains the miss was not tested here.
 
@@ -439,7 +451,7 @@ scorecard was discarded, and the scoring code now refuses to run when the check 
 
 The nine runs used 1{,}891 core-hours, two-thirds of them for WRF, against a planning
 estimate of 741--1{,}482, on a shared node with more processes than cores. WRF took
-28--30\,h of wall time per event on 12--20 cores; RegCM5 took 1.4--3.2\,h at 12\km\ and
+28--30\,h of wall time per run on 12--20 cores; RegCM5 took 1.4--3.2\,h at 12\km\ and
 5.9--13.2\,h at 3\km\ on 20 cores.
 
 % ==========================================================================================
@@ -447,8 +459,9 @@ estimate of 741--1{,}482, on a shared node with more processes than cores. WRF t
 
 Two events are case studies, and the criteria are pass/fail statements per case, without
 significance testing. Each event is one deterministic run from the \twcr\ ensemble mean.
-H5 passes by 0.02 in FSS and 0.6 percentage points of bias. The 1924 IMD grid rests on far
-fewer gauges than the 2005 grid. Present-day land use is used for 1924, and the two models
+H5 passes by 0.02 in FSS and 0.6 percentage points of bias. Other century-long
+reanalyses (ERA-20C, CERA-20C) were not tried as drivers. The 1924 IMD grid rests on fewer
+gauges than the 2005 grid. Present-day land use is used for 1924, and the two models
 initialise soil moisture differently. The Santacruz figure is a station total, compared
 with grid-point and 50\km\ values.
 
@@ -496,6 +509,7 @@ ID & Case & Values & Result \\
 \end{tabular}
 \end{center}
 
+\clearpage
 \section{Event totals on the 3\,km grids}
 
 \begin{figure}[h]
@@ -506,6 +520,7 @@ ID & Case & Values & Result \\
   (bottom). The east--west streaks over the sea lie along the low-level westerlies; the pale
   frame around the RegCM5 domain is its lateral relaxation zone. Neither affects the scores,
   which use IMD land cells only.}
+  \label{fig:native}
 \end{figure}
 
 \end{document}

@@ -228,7 +228,7 @@ including another user's 32 wrf.exe), so these are upper bounds for a dedicated 
 | RegCM5 3 km | E2_mumbai2005 | 20CRv3 | 144 | 20 | 6.3 | 126 | 1.1 |
 | RegCM5 12 km | E2_mumbai2005 | ERA5 | 144 | 20 | 1.5 | 29 | 0.2 |
 | RegCM5 3 km | E2_mumbai2005 | ERA5 | 144 | 20 | 5.9 | 117 | 1.0 |
-| **Total** | 9 runs | | | | | **1,891** | |
+| **Total** | 9 runs | | | | | **1,891** (rows rounded) | |
 
 The budget estimate was 741-1,482 core-hours; the excess (28% above the upper end) is mostly
 the WRF runs (1,264 core-hours against 500-1,000 estimated), which ran on a node with more
