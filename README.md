@@ -75,7 +75,7 @@ scripts/
   preprocess/                 driver -> WPS intermediate files, driver -> RegCM ERA5-format files
   setup/                      HPC setup (RegCM5, Open MPI, netCDF builds), patched WRF build
   run/                        run_wps.sh, run_wrf.sh, run_regcm.sh, launch_all.sh, status.sh
-  postprocess/                daily rainfall on the IMD grid (conservative remap)
+  postprocess/                daily rainfall on the IMD grid (conservative remap), slim archive
   scoring/                    metrics, IMD date check, scorecard, criteria, figures
   diagnostics/                crash-address analysis (faultpc.py)
 patches/                      WRF 4.5 Thompson fix, RegCM5 build/FNEST patches

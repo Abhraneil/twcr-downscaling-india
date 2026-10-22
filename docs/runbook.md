@@ -75,6 +75,25 @@ $PYTHON scripts/scoring/story_figures.py --runs-root $RUN_ROOT   # results/figur
 `score_all.py` first checks the IMD date convention against the data and refuses to score
 if `observations.imd_label` disagrees (validation item 23).
 
+## Archive, then free the disk
+
+The raw output (all of `$RUN_ROOT`) is not needed once three things are safe: the results,
+a slim copy of the model output, and the inputs. `slim_archive.py` keeps the hourly rain,
+grids and terrain of every run, plus each run's namelists and logs, in the same layout as
+`$RUN_ROOT` (so `extract_precip.py` and `story_figures.py` run on it unchanged), checks every
+copied variable against the original and writes a MANIFEST with checksums. It deletes nothing.
+
+```bash
+source scripts/run/env.sh
+$PYTHON scripts/scoring/story_figures.py --runs-root $RUN_ROOT 2>&1 | grep -v -i warn
+$PYTHON scripts/postprocess/slim_archive.py --runs-root $RUN_ROOT --out $TWCR_HOME/archive/runs_slim
+tar czf $TWCR_HOME/final_results.tgz results data/daily                 # for the repository
+tar czf $TWCR_HOME/twcr_archive.tgz -C $TWCR_HOME/archive runs_slim \
+    -C $REPO results data/daily data/drivers data/obs                    # for Zenodo
+```
+Copy both archives off the HPC and check them (`tar tzf ... | wc -l`) before deleting
+`$RUN_ROOT`. The model builds (patched WRF, RegCM5, Open MPI) are outside `$RUN_ROOT`.
+
 ## Remaining schedule
 
 | Day | Work |
