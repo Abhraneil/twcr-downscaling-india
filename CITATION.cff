@@ -6,6 +6,7 @@ authors:
   - given-names: "Likith Muni"
     family-names: "Narakala"
 license: MIT
+repository-code: "https://github.com/Abhraneil/twcr-downscaling-india"
 version: "0.9"
 date-released: "2026-10-19"
 keywords:
