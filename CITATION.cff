@@ -3,8 +3,8 @@ message: "If you use this experiment, its code or its results, please cite it as
 title: "Downscaling 20CRv3 over India: two extreme monsoon rainfall events, WRF and RegCM5"
 type: software
 authors:
-  - given-names: "Likith Muni"
-    family-names: "Narakala"
+  - given-names: "Abhraneil"
+    family-names: "Bhattacharya"
 license: MIT
 repository-code: "https://github.com/Abhraneil/twcr-downscaling-india"
 version: "0.9"
