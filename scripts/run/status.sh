@@ -14,16 +14,22 @@ from pathlib import Path
 runs, repo, stall_min = Path(sys.argv[1]), Path(sys.argv[2]), float(sys.argv[3])
 cfg = yaml.safe_load((repo / "config/experiment.yaml").read_text())
 now = time.time()
-print(f"{'run':38s} {'reached':17s} {'done':>5s}  {'eta':>8s}  note")
+print(f"{'run':46s} {'reached':17s} {'done':>5s}  {'eta':>8s}  note")
+groups = []   # (sim_start, sim_end, [(name, log, kind)])
 for ev, e in cfg["events"].items():
-    s0, s1 = (datetime.fromisoformat(e[k]) for k in ("sim_start", "sim_end"))
-    span = (s1 - s0).total_seconds()
     for drv in e["drivers"]:
         items = [(f"WRF {ev} {drv}", runs / "wrf" / f"{ev}_{drv}" / "rsl.error.0000", "wrf")]
         items += [(f"RegCM {ev} {drv} {r}", runs / "regcm" / f"{ev}_{drv}_{r}" / "regcm.log", "regcm") for r in ("12km", "03km")]
+        groups.append((e["sim_start"], e["sim_end"], items))
+for name, p in (cfg.get("post_hoc_runs") or {}).items():   # added after scoring, not in H1-H5
+    groups.append((p["sim_start"], cfg["events"][p["event"]]["sim_end"],
+                   [(f"WRF {name} (post-hoc)", runs / "wrf" / name / "rsl.error.0000", "wrf")]))
+for g0, g1, items in groups:
+        s0, s1 = datetime.fromisoformat(g0), datetime.fromisoformat(g1)
+        span = (s1 - s0).total_seconds()
         for name, log, kind in items:
             if not log.exists():
-                print(f"{name:38s} {'-':17s} {'':>5s}  {'':>8s}  not started"); continue
+                print(f"{name:46s} {'-':17s} {'':>5s}  {'':>8s}  not started"); continue
             txt = log.read_bytes()[-200000:].decode(errors="replace")
             if kind == "wrf":
                 m = re.findall(r"Timing for main: time (\S+) on domain\s+2", txt) or re.findall(r"Timing for main: time (\S+) on domain\s+1", txt)
@@ -57,6 +63,6 @@ for ev, e in cfg["events"].items():
                 note, eta = f"STOPPED: log silent {silent:.0f} min (see the lane log)", "     -  "
             else:
                 note = "ERROR" if re.search(r"(?i)(fatal|segmentation|NaN found|cfl)", txt[-5000:]) else ""
-            print(f"{name:38s} {str(t)[:16] if t else '-':17s} {100*frac:4.0f}%  {eta}  {note}")
+            print(f"{name:46s} {str(t)[:16] if t else '-':17s} {100*frac:4.0f}%  {eta}  {note}")
 EOF
 echo; tail -n 2 "$TWCR_HOME"/logs/lane_*.log 2>/dev/null

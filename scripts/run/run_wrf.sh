@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 # real.exe + wrf.exe for one event and driver (d01 12 km + d02 3 km, one-way nest).
 #   NPROCS=20 bash scripts/run/run_wrf.sh E1_kerala1924 20CRv3
+#   NPROCS=20 bash scripts/run/run_wrf.sh --post-hoc E2_mumbai2005_ERA5_start0725
+#
+# A post-hoc run (config `post_hoc_runs`) uses the met_em files of its event and driver
+# (wps/<event>_<driver>) and runs in wrf/<post-hoc name> with its own namelist.
 #
 # wrf.exe writes restart files every 12 simulated hours and its history in 12-hour files
 # aligned with them (scripts/generate_namelists.py). A restart time counts as usable once
@@ -18,14 +22,29 @@
 # starts over from real.exe.
 set -euo pipefail
 source "$(dirname "$0")/env.sh"
-EV=$1; DRV=$2
+if [ "${1:-}" = "--post-hoc" ]; then
+  CASE=${2:?usage: run_wrf.sh --post-hoc NAME}
+  read -r EV DRV < <($PYTHON - "$REPO" "$CASE" <<'PY'
+import sys
+sys.path.insert(0, sys.argv[1] + "/scripts")
+import generate_namelists as g
+c = g.wrf_cases(g.yaml.safe_load(open(sys.argv[1] + "/config/experiment.yaml")))
+if sys.argv[2] in c and c[sys.argv[2]][3] is not None:
+    print(c[sys.argv[2]][0], c[sys.argv[2]][2])
+PY
+) || true
+  [ -n "${DRV:-}" ] || { echo "no post-hoc WRF run $CASE in config/experiment.yaml"; exit 1; }
+else
+  EV=$1; DRV=$2; CASE=${EV}_${DRV}
+fi
+[ -f "$REPO/namelists/wrf/namelist.input.$CASE" ] || { echo "no namelists/wrf/namelist.input.$CASE: run scripts/generate_namelists.py"; exit 1; }
 [ -x "$WRF_DIR/main/wrf.exe" ] || { echo "WRF_DIR=$WRF_DIR has no main/wrf.exe (edit scripts/run/site.env)"; exit 1; }
 MAX_RESUMES=${WRF_MAX_RESUMES:-6}
 W=$RUN_ROOT/wps/${EV}_${DRV}
-D=$RUN_ROOT/wrf/${EV}_${DRV}
+D=$RUN_ROOT/wrf/$CASE
 ls "$W"/met_em.d02.* > /dev/null 2>&1 || { echo "no met_em files in $W: run run_wps.sh first"; exit 1; }
 mkdir -p "$D" && cd "$D"
-if [ "${FRESH:-0}" != 1 ] && grep -aqs "SUCCESS COMPLETE WRF" rsl.error.0000; then echo "WRF $EV $DRV already finished (FRESH=1 reruns it)"; exit 0; fi
+if [ "${FRESH:-0}" != 1 ] && grep -aqs "SUCCESS COMPLETE WRF" rsl.error.0000; then echo "WRF $CASE already finished (FRESH=1 reruns it)"; exit 0; fi
 for f in "$WRF_DIR"/run/*; do
   case $(basename "$f") in namelist.input|*.exe) ;; *) ln -sf "$f" . ;; esac
 done
@@ -73,14 +92,14 @@ remove_outputs() {  # (also the copies of files the mover has already moved)
 
 if [ "${FRESH:-0}" = 1 ] || [ -z "$(latest_restart)" ]; then
   remove_outputs; rm -rf attempts resumes.log timing.txt
-  sed "s#NUM_METGRID_LEVELS#${NLEV}#" "$REPO/namelists/wrf/namelist.input.${EV}_${DRV}" > namelist.input
+  sed "s#NUM_METGRID_LEVELS#${NLEV}#" "$REPO/namelists/wrf/namelist.input.$CASE" > namelist.input
   cp "$REPO/namelists/wrf/iofields.txt" .
   $MPIRUN -np "$NPROCS" ./real.exe
   grep -q "SUCCESS COMPLETE REAL_EM" rsl.error.0000 || { echo "real.exe failed, see $D/rsl.error.0000"; tail -20 rsl.error.0000; exit 1; }
   rm -rf real_logs && mkdir real_logs && mv rsl.* real_logs/
-  log "start $EV $DRV on $NPROCS ranks"
+  log "start $CASE ($EV $DRV) on $NPROCS ranks"
 else
-  log "continuing $EV $DRV from the restart files at $(latest_restart)"
+  log "continuing $CASE from the restart files at $(latest_restart)"
 fi
 
 start=$(date +%s); n=0; prev=""
@@ -89,9 +108,9 @@ trap '[ -n "$PRUNER" ] && kill "$PRUNER" 2>/dev/null; true' EXIT
 while :; do
   R=$(latest_restart)
   if [ -n "$R" ]; then
-    $PYTHON "$REPO/scripts/generate_namelists.py" --wrf-restart "$EV" "$DRV" "$R" | sed "s#NUM_METGRID_LEVELS#${NLEV}#" > namelist.input
+    $PYTHON "$REPO/scripts/generate_namelists.py" --wrf-restart "$CASE" "$R" | sed "s#NUM_METGRID_LEVELS#${NLEV}#" > namelist.input
   else
-    sed "s#NUM_METGRID_LEVELS#${NLEV}#" "$REPO/namelists/wrf/namelist.input.${EV}_${DRV}" > namelist.input
+    sed "s#NUM_METGRID_LEVELS#${NLEV}#" "$REPO/namelists/wrf/namelist.input.$CASE" > namelist.input
   fi
   cp "$REPO/namelists/wrf/iofields.txt" .
   ( while sleep 600; do verify_restarts; prune_restarts; done ) & PRUNER=$!
@@ -112,4 +131,4 @@ while :; do
 done
 rm -f wrfrst_d0*
 echo "wall_seconds=$(( $(date +%s) - start )) nprocs=$NPROCS resumes=$n" > timing.txt
-log "WRF $EV $DRV done: $(cat timing.txt)"
+log "WRF $CASE done: $(cat timing.txt)"

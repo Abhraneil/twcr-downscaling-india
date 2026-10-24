@@ -84,3 +84,26 @@ scoring:
   thresholds_mm_day: [64.5, 115.6, 204.5]   # IMD heavy / very heavy / extremely heavy
   fss_window_points: [1, 3, 5, 9]           # 0.25, 0.75, 1.25, 2.25 deg
   sal_threshold_factor: 0.0667              # 1/15 of the 95th percentile (Wernli et al. 2009)
+
+# Runs added after the nine runs had been scored. They are NOT part of the criteria H1-H5
+# (docs/metrics.md), are scored separately (scripts/scoring/post_hoc.py) and are reported as
+# post-hoc in every document. Each one changes a single setting of a baseline run.
+post_hoc_runs:
+  E2_mumbai2005_ERA5_start0725:
+    model: WRF
+    event: E2_mumbai2005
+    driver: ERA5
+    baseline: E2_mumbai2005_ERA5        # identical except sim_start
+    sim_start: "2005-07-25T00:00"       # 24 h later than the baseline
+    # The first 24 h scored by the baseline (03 UTC 25 to 03 UTC 26 July) starts 3 h after this
+    # run starts, so it is not scored; the first scored window has the same 27 h spin-up as in
+    # the baseline and is the cloudburst day (IMD label 27 July).
+    score_start: "2005-07-26T03:00"
+    score_ndays: 3
+    added: "2026-10-24"
+    why: >
+      Litta et al. (2007, Meteorol. Appl. 14:291-295) simulated the event with MM5 driven by
+      NCEP FNL from 00 UTC 25 July 2005 and obtained 24-80 cm at Mumbai in nine cumulus
+      configurations, against at most 163 mm within 50 km of Santacruz in any of our runs
+      started at 00 UTC 24 July. This run separates the start time (forecast lead) from the
+      model physics and the driver: same model, physics, domains and driver as the baseline.

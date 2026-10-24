@@ -71,3 +71,33 @@ def test_wrf_namelist_matches_config():
             assert nml["time_control"]["interval_seconds"] == 10800
             s = datetime.fromisoformat(ev["sim_start"])
             assert nml["time_control"]["start_year"][0] == s.year
+
+
+@pytest.mark.parametrize("name", list(CFG.get("post_hoc_runs") or {}))
+def test_post_hoc_run_differs_from_baseline_only_in_start(name):
+    """A post-hoc WRF run changes one setting of its baseline: the start time."""
+    p = CFG["post_hoc_runs"][name]
+    ev = CFG["events"][p["event"]]
+    nl = lambda f: f90nml.read(ROOT / "namelists/wrf" / f"namelist.input.{f}")
+    a, b = nl(p["baseline"]), nl(name)
+    timing = {"run_hours", "start_day", "start_hour", "start_month", "start_year"}
+    for group in a:
+        for key, val in a[group].items():
+            if group == "time_control" and key in timing:
+                continue
+            assert b[group][key] == val, f"{group}.{key} differs from the baseline"
+    s0 = datetime.fromisoformat(p["sim_start"])
+    s1 = datetime.fromisoformat(ev["sim_end"])
+    t = b["time_control"]
+    assert (t["start_year"][0], t["start_month"][0], t["start_day"][0], t["start_hour"][0]) == \
+        (s0.year, s0.month, s0.day, s0.hour)
+    assert t["run_hours"] == (s1 - s0).total_seconds() / 3600
+    w0 = datetime.fromisoformat(p["score_start"])
+    assert w0 >= s0 + timedelta(hours=ev["spinup_hours"]) and w0.hour == 3
+    assert w0 + timedelta(days=p["score_ndays"]) <= s1
+    # its restart namelist comes from the same generator
+    out = subprocess.run([sys.executable, str(ROOT / "scripts/generate_namelists.py"), "--wrf-restart",
+                          name, (s0 + timedelta(hours=12)).strftime("%Y-%m-%d_%H:%M:%S")],
+                         check=True, capture_output=True, text=True).stdout
+    r = f90nml.reads(out)["time_control"]
+    assert r["restart"] is True and r["run_hours"] == t["run_hours"] - 12
