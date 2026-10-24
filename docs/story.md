@@ -97,6 +97,40 @@ configuration (Thompson + Grell-Freitas in WRF) is one that misses it. Whether t
 alone explains the miss was not tested here (no further runs); it is the first item of
 future work.
 
+**Figs 8-11** (`scripts/scoring/mumbai_figures.py`), the event as Litta et al. (2007, Meteorol.
+Appl. 14:291-295) showed it, for our runs:
+
+| Litta et al. 2007 | What it shows | Ours |
+|---|---|---|
+| Fig. 1 | 24 h gauge totals around Mumbai (IMD) | **Fig. 8** `fig8_E2_stations.png`: the same gauges as dots over the 24 h rain of the IMD grid and every 3 km run |
+| Fig. 2 | 3-hourly accumulation at Santacruz and Colaba (gauges) | **Fig. 9** `fig9_E2_3hourly.png`: gauges and the nearest grid point of every run, both drivers |
+| Fig. 3 | the three MM5 domains (45/15/5 km) | Fig. 1 (12/3 km); the differences are listed below |
+| Fig. 4, Table I | model 24 h rain on the 5 km domain; Santacruz in nine cumulus set-ups | Figs. 4, 8 and `results/post_hoc/POST_HOC.md` |
+| Fig. 5 | TRMM 3B42 24 h rain | none: IMD gauge-based grids throughout |
+| Fig. 6 | model 3-hourly rain at Santacruz | Figs. 7 and 9 |
+| Fig. 7 | 500 hPa streamlines every 2 h, 06-16 UTC (mid-tropospheric vortices) | **Fig. 10** `fig10_E2_500hPa.png`: streamlines and relative vorticity at 06, 09, 12, 15 UTC, ERA5 and the ERA5-driven WRF 3 km runs |
+| text only | relative humidity, vertical velocity, vorticity "at different levels" | **Fig. 11** `fig11_E2_column.png`: humidity, vertical velocity and wind above Santacruz, 00 UTC 26 to 06 UTC 27 July |
+
+Gauge values and the 3-hourly series are in `config/stations_mumbai2005.yaml` (IMD, as published by
+Litta et al.; positions of the eight gauges other than Santacruz and Colaba read off their Fig. 1,
+good to about 2 km). Fig. 7 now also carries the 3-hourly gauge series at Santacruz.
+
+How their set-up differs from ours: MM5 with three two-way nests (45, 15, 5 km; outer domain about
+58-97°E, 1-38°N; inner about 70.5-78°E, 14.5-21°N), 23 levels, NCEP FNL 1° 6-hourly, MRF boundary
+layer, simple-ice microphysics, started 00 UTC 25 July for 48 h; their "Day 2" rain is 00-00 UTC.
+Ours: WRF with one one-way nest (12, 3 km), 50 levels, ERA5 or 20CRv3 3-hourly, YSU, Thompson,
+started 00 UTC 24 July; rain scored 03-03 UTC like the gauges. The cumulus choice of their best run
+(Grell outside, none in the 5 km domain: 80 cm) has the same structure as ours (Grell-Freitas at
+12 km, none at 3 km); with Kain-Fritsch in all three domains they got 24 cm, still more than any of
+our runs within 50 km of Santacruz.
+
+**Post-hoc run** (config `post_hoc_runs`, added 24 October 2026 after reading Litta et al.; not part
+of H1-H5): WRF driven by ERA5, identical to the baseline except that it starts at 00 UTC 25 July,
+so the cloudburst day begins 27 h into the run instead of 51 h. Scored by
+`scripts/scoring/post_hoc.py` against the baseline on the same days (IMD 27-29 July):
+`results/post_hoc/POST_HOC.md`, **Fig. 12** `fig12_post_hoc_daily.png`; it appears in yellow in
+Figs. 7-11. Result: (to be filled in from POST_HOC.md when the run has finished).
+
 ## Act 3: does 3 km help?
 
 **Fig. 9** `fig6_scores.png`. All scores as a heatmap (darker = closer to perfect).

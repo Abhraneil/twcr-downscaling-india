@@ -117,3 +117,33 @@ def test_regcm_shf_reader(tmp_path):
     d, la, lo, dx = regcm_daily([tmp_path / "x_SHF.2005072500.nc"],
                                 [(datetime(2005, 7, 25, 3), datetime(2005, 7, 26, 3))])
     assert np.allclose(d, 48.0) and 2.5 < dx < 3.5
+
+
+def test_pressure_interpolation_and_humidity():
+    """fig 10/11 helpers: linear in ln p is exact for ln p; RH 100% at saturation; NaN below ground."""
+    import mumbai_figures as MF
+    p = np.linspace(1.0e5, 1.0e4, 30)[:, None] * np.ones((1, 3))
+    p[:, 2] *= 0.9                                       # a column whose surface is at 900 hPa
+    out = MF.to_plev(np.log(p), p, [9.5e4, 5.0e4, 2.0e4])
+    assert np.allclose(out[:, :2], np.log([9.5e4, 5.0e4, 2.0e4])[:, None])
+    assert np.isnan(out[0, 2]) and np.isclose(out[1, 2], np.log(5.0e4))
+    t = np.array([300.0, 280.0])
+    es = 611.2 * np.exp(17.67 * (t - 273.15) / (t - 29.65))
+    q = 0.622 * es / (8.0e4 - es)                        # saturation mixing ratio at 800 hPa
+    assert np.allclose(MF.rh(t, q, 8.0e4), 100.0)
+
+
+def test_boundary_lines():
+    """The map lines exist, lie in the clipping box, and India's coast passes Santacruz and Kochi."""
+    import json
+    from boundaries import ASSETS, available
+    assert available()
+    pts = {}
+    for name in ("india_outline", "india_states", "neighbours"):
+        fc = json.loads((ASSETS / f"{name}.geojson").read_text())
+        xy = np.concatenate([np.asarray(f["geometry"]["coordinates"]) for f in fc["features"]])
+        assert 50 <= xy[:, 0].min() and xy[:, 0].max() <= 100 and -5 <= xy[:, 1].min() and xy[:, 1].max() <= 40
+        pts[name] = xy
+    for lat, lon in ((19.09, 72.84), (9.97, 76.24)):      # Santacruz is ~2 km inland; Kochi on the coast
+        d = 111.0 * np.hypot(pts["india_outline"][:, 1] - lat, (pts["india_outline"][:, 0] - lon) * np.cos(np.radians(lat)))
+        assert d.min() < 5.0

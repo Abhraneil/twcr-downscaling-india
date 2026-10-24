@@ -46,6 +46,12 @@ against five criteria committed before any of the nine runs was started
 | H4 3 km beats 12 km on extremes | 4 of 6 cases |
 | H5 the pre-1950 event is reproduced (E1, 3 km) | pass, narrowly (RegCM5) |
 
+**Added after the results (not part of the criteria):** one more WRF run driven by ERA5 and
+started 24 h later (00 UTC 25 July 2005), as in Litta et al. (2007), to separate the start time from
+the model and the driver: [`results/post_hoc/POST_HOC.md`](results/post_hoc/POST_HOC.md). Figures
+8-11 show the event as Litta et al. did (gauge map, 3-hourly gauges, 500 hPa vortices, the column
+above Santacruz).
+
 Full tables: [`results/SCORECARD.md`](results/SCORECARD.md),
 [`results/HYPOTHESES.md`](results/HYPOTHESES.md), `results/scores.csv`. The results in
 figure order with captions: [`docs/story.md`](docs/story.md).
@@ -63,7 +69,8 @@ without a stop.
 ## Repository
 
 ```
-config/experiment.yaml        single source of truth: domains, dates, boxes, thresholds
+config/experiment.yaml        single source of truth: domains, dates, boxes, thresholds, post-hoc runs
+config/stations_mumbai2005.yaml  Mumbai gauge totals and 3-hourly series, 26-27 July 2005 (IMD)
 namelists/                    generated from the config (never edited by hand)
   wps/ wrf/ regcm/            one per event x driver (x resolution for RegCM)
   GEOMETRY.md                 domain corners and nest indices
@@ -76,7 +83,7 @@ scripts/
   setup/                      HPC setup (RegCM5, Open MPI, netCDF builds), patched WRF build
   run/                        run_wps.sh, run_wrf.sh, run_regcm.sh, launch_all.sh, status.sh
   postprocess/                daily rainfall on the IMD grid (conservative remap), slim archive
-  scoring/                    metrics, IMD date check, scorecard, criteria, figures
+  scoring/                    metrics, IMD date check, scorecard, criteria, figures, post-hoc scoring
   diagnostics/                crash-address analysis (faultpc.py)
 patches/                      WRF 4.5 Thompson fix, RegCM5 build/FNEST patches
 tests/                        unit tests, end-to-end test on synthetic output, Thompson reproducer
@@ -87,7 +94,8 @@ docs/
   story.md                    the results in figure order, with captions
   whitepaper/                 LaTeX source and PDF of the white paper
   runbook.md, budget.md       how it was run; planned and measured cost
-results/                      scores.csv, SCORECARD.md, HYPOTHESES.md, figures/
+results/                      scores.csv, SCORECARD.md, HYPOTHESES.md, figures/, post_hoc/
+assets/boundaries/            coast, boundary of India and state boundaries for the maps (sources, licences)
 ```
 
 ## Reproduce
@@ -133,8 +141,10 @@ Step-by-step commands and failure handling are in `docs/runbook.md`.
 provided by the U.S. Department of Energy, Office of Science Biological and Environmental
 Research (BER), by the National Oceanic and Atmospheric Administration Climate Program
 Office, and by the NOAA Physical Sciences Laboratory. ERA5: Copernicus Climate Change
-Service. Rainfall: India Meteorological Department (Pai et al. 2014). Models: WRF (NCAR),
-RegCM5 (ICTP).
+Service. Rainfall: India Meteorological Department (Pai et al. 2014); Mumbai gauges as published
+by Litta et al. (2007). Models: WRF (NCAR), RegCM5 (ICTP). Map boundaries: India and its states
+by the DataMeet India community (CC0 / CC BY), other countries from Natural Earth
+(`assets/boundaries/README.md`).
 
 ## Citation and licence
 

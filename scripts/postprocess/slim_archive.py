@@ -6,7 +6,7 @@
 Writes DEST with the same layout as RUNS, so every script that reads model output
 (extract_precip.py, story_figures.py) runs on DEST unchanged:
 
-  wrf/<event>_<driver>/wrfout_d0[12]_*   Times, XLAT, XLONG, HGT, LANDMASK, RAINC, RAINNC,
+  wrf/<event>_<driver>/wrfout_d0[12]_*   (and wrf/<post-hoc run>/) Times, XLAT, XLONG, HGT, LANDMASK, RAINC, RAINNC,
                                          RAINSH (hourly, as written), global attributes
   regcm/<run>/output/*SHF*.nc            pr and its coordinates (hourly)
   wps/<event>_<driver>/geo_em.d0[12].nc  XLAT_M, XLONG_M, HGT_M, LANDMASK
@@ -123,6 +123,14 @@ def main():
                 jobs += [(f, out / "regcm" / r.name / "output" / f.name, REGCM_VARS, ["pr", "time", "xlat", "xlon"])
                          for f in files]
                 smalls += [r / n for n in SMALL_FILES] + sorted(r.glob("regcm.in*"))
+    for name, p in (cfg.get("post_hoc_runs") or {}).items():       # WRF runs added after scoring
+        w = runs / "wrf" / name
+        files = sorted(w.glob("wrfout_d0*"))
+        if not any(f.name.startswith("wrfout_d02") for f in files):
+            problems.append(f"{w}: no wrfout_d02 files (post-hoc run)")
+        jobs += [(f, out / "wrf" / name / f.name, WRF_VARS, ["Times", "XLAT", "XLONG", "RAINC", "RAINNC"])
+                 for f in files]
+        smalls += [w / n for n in SMALL_FILES]
     if problems:
         print("\n".join(problems))
         sys.exit("not all runs are complete in --runs-root; nothing written")

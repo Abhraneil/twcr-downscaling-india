@@ -75,6 +75,21 @@ $PYTHON scripts/scoring/story_figures.py --runs-root $RUN_ROOT   # results/figur
 `score_all.py` first checks the IMD date convention against the data and refuses to score
 if `observations.imd_label` disagrees (validation item 23).
 
+## Post-hoc run (24 October 2026): E2 ERA5 started 24 h later
+
+Added after the results, outside H1-H5 (config `post_hoc_runs`, docs/story.md). It uses the met_em
+files of `wps/E2_mumbai2005_ERA5`, so those must still exist.
+
+```bash
+source scripts/run/env.sh
+NPROCS=24 setsid nohup bash scripts/run/run_wrf.sh --post-hoc E2_mumbai2005_ERA5_start0725 \
+    > $TWCR_HOME/logs/lane_wrf_posthoc.log 2>&1 < /dev/null &
+bash scripts/run/status.sh                          # last line: the post-hoc run
+# when it has finished:
+$PYTHON scripts/scoring/post_hoc.py --runs-root $RUN_ROOT          # results/post_hoc/, fig 12
+$PYTHON scripts/scoring/story_figures.py --runs-root $RUN_ROOT     # fig 1-11 (fig 10, 11 need full wrfout)
+```
+
 ## Archive, then free the disk
 
 The raw output (all of `$RUN_ROOT`) is not needed once three things are safe: the results,
@@ -85,7 +100,7 @@ copied variable against the original and writes a MANIFEST with checksums. It de
 
 ```bash
 source scripts/run/env.sh
-$PYTHON scripts/scoring/story_figures.py --runs-root $RUN_ROOT 2>&1 | grep -v -i warn
+$PYTHON scripts/scoring/story_figures.py --runs-root $RUN_ROOT 2>&1 | grep -v -i warn   # fig 10, 11 need the full runs
 $PYTHON scripts/postprocess/slim_archive.py --runs-root $RUN_ROOT --out $TWCR_HOME/archive/runs_slim
 tar czf $TWCR_HOME/final_results.tgz results data/daily                 # for the repository
 tar czf $TWCR_HOME/twcr_archive.tgz -C $TWCR_HOME/archive runs_slim \

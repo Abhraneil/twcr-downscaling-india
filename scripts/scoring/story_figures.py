@@ -12,7 +12,11 @@
   fig5_<event>_daily.png       day by day over the scoring box: area mean and maximum
   fig6_scores.png              the scorecard as a heatmap (shading = closeness to perfect)
   fig7_santacruz.png           rain accumulated at Santacruz (Mumbai), 08:30 IST 26 July to
-                               08:30 IST 27 July 2005, against the 944 mm observed there
+                               08:30 IST 27 July 2005, against the gauge (every 3 h, 944 mm in all)
+  fig8-fig11                   Mumbai in the style of Litta et al. (2007): scripts/scoring/mumbai_figures.py
+
+Maps carry the coast, the boundary of India and the state boundaries (assets/boundaries).
+WRF runs added after scoring (config post_hoc_runs) appear in fig 7-11 only, in yellow.
 
 Inputs are the ones scoring uses (data/daily, data/obs, data/drivers, results/scores.csv) plus
 the model output under RUNS. A figure whose inputs are missing is skipped with a message.
@@ -40,10 +44,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from common import DATA, G, ROOT, load_config  # noqa: E402
 import metrics as M  # noqa: E402
+from boundaries import draw_boundaries  # noqa: E402
 from score_all import obs_for_event  # noqa: E402
 
 INK, INK2, RULE = "#0b0b0b", "#52514e", "#d9d8d4"
-COL = {"WRF": "#2a78d6", "RegCM": "#eb6834", "DRIVER": "#1baf7a", "IMD": INK}
+COL = {"WRF": "#2a78d6", "RegCM": "#eb6834", "DRIVER": "#1baf7a", "IMD": INK,
+       "POSTHOC": "#eda100"}                 # categorical slot 4: WRF runs added after scoring
 LS = {"12km": (0, (5, 2)), "3km": "-", "DRIVER": (0, (1.5, 1.5))}
 BLUES = ["#cde2fb", "#b7d3f6", "#9ec5f4", "#86b6ef", "#6da7ec", "#5598e7", "#3987e5",
          "#2a78d6", "#256abf", "#1c5cab", "#184f95", "#104281", "#0d366b"]
@@ -54,6 +60,7 @@ RAIN_NORM = BoundaryNorm(RAIN_LEVELS, RAIN_CMAP.N)
 SANTACRUZ = (19.0896, 72.8656)            # IMD Santacruz observatory, Mumbai
 SANTACRUZ_MM = 944.0                      # 24 h to 08:30 IST 27 July 2005
 CITIES = {"E1_kerala1924": [("Aluva", 10.11, 76.35)], "E2_mumbai2005": [("Mumbai", 19.08, 72.88)]}
+STATIONS = ROOT / "config" / "stations_mumbai2005.yaml"
 SLP_MAX_HGT = 1000.0                      # fig 2: no sea-level pressure contours over ground higher than this (m)
 plt.rcParams.update({"font.size": 8, "axes.edgecolor": INK2, "axes.labelcolor": INK, "xtick.color": INK2,
                      "ytick.color": INK2, "axes.titlesize": 9, "axes.titleweight": "bold",
@@ -81,6 +88,27 @@ def style(run):
                 marker="o" if r == "3km" else ("s" if m == "DRIVER" else None), ms=3)
 
 
+def post_hoc_runs(cfg, event=None, driver=None):
+    """[(name, entry)] of the WRF runs added after scoring (config post_hoc_runs; not in H1-H5)."""
+    return [(n, p) for n, p in (cfg.get("post_hoc_runs") or {}).items()
+            if p.get("model") == "WRF" and event in (None, p["event"]) and driver in (None, p["driver"])]
+
+
+def post_hoc_label(p, res="3 km"):
+    return f"WRF {res}, start {datetime.fromisoformat(p['sim_start']):%d %b} (post-hoc)"
+
+
+def load_stations():
+    """Gauge totals and 3-hourly series of 26-27 July 2005 (config/stations_mumbai2005.yaml)."""
+    if not STATIONS.exists():
+        return None
+    import yaml
+    st = yaml.safe_load(STATIONS.read_text())
+    th = st["three_hourly"]
+    th["times"] = [datetime.fromisoformat(t) for t in th["times_utc"]]
+    return st
+
+
 def box_line(ax, b, **kw):
     ax.plot([b["lon_min"], b["lon_max"], b["lon_max"], b["lon_min"], b["lon_min"]],
             [b["lat_min"], b["lat_min"], b["lat_max"], b["lat_max"], b["lat_min"]], **kw)
@@ -102,6 +130,13 @@ def geo(runs, ev_name, drv, dom):
 
 def coast(ax, lat, lon, land, lw=0.6):
     ax.contour(lon, lat, land.astype(float), levels=[0.5], colors=INK2, linewidths=lw)
+
+
+def borders(ax, lw=0.6, states=True, fallback=None):
+    """Coast, the boundary of India and its states (assets/boundaries) inside the current
+    limits; without those files, the model coastline from `fallback` = (lat, lon, landmask)."""
+    if not draw_boundaries(ax, states=states, lw=lw) and fallback is not None:
+        coast(ax, *fallback, lw=lw)
 
 
 def wrf_times(f):
@@ -185,7 +220,9 @@ def fig_domains(cfg, runs, out):
     lv = [0, 100, 300, 600, 1000, 1500, 2500, 6000]
     ax.set_facecolor("#eef4fb")
     pc = ax.pcolormesh(d01["lon"], d01["lat"], hgt, cmap=grays, norm=BoundaryNorm(lv, grays.N), shading="nearest")
-    coast(ax, d01["lat"], d01["lon"], d01["land"])
+    ax.set_xlim(d01["lon"].min(), d01["lon"].max())
+    ax.set_ylim(d01["lat"].min(), d01["lat"].max())
+    borders(ax, lw=0.6, fallback=(d01["lat"], d01["lon"], d01["land"]))
     for ev_name, ev in evs:
         drv = ev["drivers"][0]
         g2 = geo(runs, ev_name, drv, "d02")
@@ -290,7 +327,9 @@ def fig_synoptic(cfg, out):
             qv = ax.quiver(lon[::step], lat[::step], u[::step, ::step], v[::step, ::step], color=INK,
                            scale=400, width=0.0028, headwidth=3.5)
             ax.quiverkey(qv, 0.86, 1.03, 15, "15 m/s", labelpos="W", fontproperties={"size": 7})
-            ax.contour(lon, lat, sub["LANDSEA"].values, levels=[0.5], colors=INK, linewidths=0.5)
+            ax.set_xlim(lon.min(), lon.max())
+            ax.set_ylim(lat.min(), lat.max())
+            borders(ax, lw=0.5, fallback=(lat, lon, sub["LANDSEA"].values))
             box_line(ax, ev["score_box"], color="#e34948", lw=1.2)
             ax.set_aspect("equal")
             ax.set_title(f"{d}", loc="left")
@@ -301,7 +340,7 @@ def fig_synoptic(cfg, out):
         when = f"{t0:%d %b %Y %H} UTC to {t1:%d %b %H} UTC"
         fig.suptitle(f"{ev['title']}\nwettest observed day ({when}), driver mean\n"
                      f"shading: column water vapour; contours: sea-level pressure (hPa; none over ground above "
-                     f"{SLP_MAX_HGT:g} m);\narrows: 850 hPa wind; black line: the driver's own coastline",
+                     f"{SLP_MAX_HGT:g} m);\narrows: 850 hPa wind; lines: coast, boundaries of India and its states",
                      fontsize=8)
         fig.savefig(out / f"fig2_{ev_name}_synoptic.png", bbox_inches="tight")
         plt.close(fig)
@@ -338,11 +377,10 @@ def fig_totals(cfg, runs, out, sc):
                     ax.axis("off")
                     continue
                 pc = ax.pcolormesh(lon, lat, f, cmap=RAIN_CMAP, norm=RAIN_NORM, shading="nearest")
-                if g1 is not None:
-                    coast(ax, g1["lat"], g1["lon"], g1["land"], lw=0.5)
+                ax.set_xlim(lon.min() - 0.125, lon.max() + 0.125)
+                ax.set_ylim(lat.min() - 0.125, lat.max() + 0.125)
+                borders(ax, lw=0.5, fallback=None if g1 is None else (g1["lat"], g1["lon"], g1["land"]))
                 box_line(ax, ev["score_box"], color=INK, lw=0.8, ls=(0, (2, 1.5)))
-                ax.set_xlim(lon.min(), lon.max())
-                ax.set_ylim(lat.min(), lat.max())
                 ax.set_aspect("equal")
                 ax.set_title("IMD (observed)" if run == "IMD" else label(run), fontsize=8)
                 if sc is not None and run != "IMD":
@@ -396,11 +434,10 @@ def fig_native(cfg, runs, out):
             if geo2["hgt"] is not None:
                 ax.contour(lo2, la2, geo2["hgt"], levels=[500, 1000], colors=INK2, linewidths=0.4,
                            linestyles=["--", "-"])
-            if geo2["land"] is not None:
-                coast(ax, la2, lo2, geo2["land"], lw=0.5)
-            box_line(ax, ev["score_box"], color=INK, lw=0.8, ls=(0, (2, 1.5)))
             ax.set_xlim(lo2.min(), lo2.max())
             ax.set_ylim(la2.min(), la2.max())
+            borders(ax, lw=0.5, fallback=None if geo2["land"] is None else (la2, lo2, geo2["land"]))
+            box_line(ax, ev["score_box"], color=INK, lw=0.8, ls=(0, (2, 1.5)))
             ax.set_aspect("equal")
             ax.set_title(name, fontsize=8)
             ax.set_xlabel("longitude (°E)")
@@ -547,6 +584,21 @@ def fig_santacruz(cfg, runs, out):
             run = f"WRF_{res}_{d}"
             ax.plot(xh, ser, label=f"{label(run)} (max ≤50 km: {mx:.0f})", **{**style(run), "marker": None})
             any_line = True
+        for name, p in post_hoc_runs(cfg, ev_name, d):
+            for dom, res in (("d01", "12 km"), ("d02", "3 km")):
+                try:
+                    w = wrf_acc(runs / "wrf" / name, dom, hours)
+                except ValueError as e:              # still running
+                    say(f"fig7: {name} {dom}: {e}; left out")
+                    continue
+                if w is None:
+                    continue
+                acc, fl = w
+                j = nearest(fl["lat"], fl["lon"], SANTACRUZ)
+                mx = float(np.max((acc[t1] - acc[t0])[within(fl["lat"], fl["lon"], SANTACRUZ, 50)]))
+                ax.plot(xh, [acc[t][j] - acc[t0][j] for t in hours], color=COL["POSTHOC"], lw=1.6,
+                        ls=LS["3km" if res == "3 km" else "12km"],
+                        label=f"{post_hoc_label(p, res)} (max ≤50 km: {mx:.0f})")
         for res in ("12km", "03km"):
             r = regcm_pr(runs / "regcm" / f"{ev_name}_{d}_{res}")
             if r is None:
@@ -573,8 +625,15 @@ def fig_santacruz(cfg, runs, out):
             cum = np.concatenate([[0.0], np.cumsum(pr.values[sel] * ih * 3600.0)])
             xs = np.concatenate([[0.0], (t[sel] - np.datetime64(t0, "s")).astype(float) / 3600.0])
             ax.plot(xs, cum, label=label(f"DRIVER_{d}"), **{**style(f"DRIVER_{d}"), "marker": None})
-        ax.axhline(SANTACRUZ_MM, color=INK, lw=1.2)
-        ax.text(24, SANTACRUZ_MM + 15, f"observed at Santacruz: {SANTACRUZ_MM:.0f} mm", fontsize=7,
+        st = load_stations()
+        if st is not None:                   # gauge, every 3 h from 06 UTC (Litta et al. 2007, Fig. 2)
+            th = st["three_hourly"]
+            xs = [(t - t0).total_seconds() / 3600.0 for t in th["times"]]
+            ax.plot([0.0] + xs, [0.0] + [10.0 * v for v in th["Santacruz_cm"]], color=COL["IMD"], lw=2.4,
+                    marker="o", ms=4, zorder=5, label="observed (IMD gauge, every 3 h)")
+        else:
+            ax.axhline(SANTACRUZ_MM, color=INK, lw=1.2)
+        ax.text(24, SANTACRUZ_MM + 25, f"observed at Santacruz: {SANTACRUZ_MM:.0f} mm", fontsize=7,
                 color=INK, ha="right")
         ax.set_title(f"driven by {d}", loc="left")
         ist = [t0 + timedelta(hours=h, minutes=330) for h in range(0, 25, 3)]
@@ -613,6 +672,8 @@ def main():
             fn()
         except Exception as e:                       # one broken figure must not stop the others
             say(f"{name} FAILED: {type(e).__name__}: {e}")
+    import mumbai_figures                            # fig 8-11 (Litta et al. 2007 style, E2 only)
+    mumbai_figures.make_all(cfg, a.runs_root, out)
     say(f"figures in {out}")
 
 

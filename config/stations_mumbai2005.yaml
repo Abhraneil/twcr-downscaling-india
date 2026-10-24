@@ -1,0 +1,32 @@
+# Observed rain gauge totals at Mumbai, 26-27 July 2005 (source: India Meteorological
+# Department), as published by Litta et al. (2007), Meteorol. Appl. 14:291-295,
+# doi:10.1002/met.31: Fig. 1 (24 h totals, mm) and Fig. 2 (3-hourly accumulation at Santacruz
+# and Colaba, cm). The text gives the same totals in cm (Santacruz 94.4, Colaba 7.4, Vihar Lake
+# 104.9, Bhandup 81.5, Bhiwandi 74.8, Kalyan 61.9, Tulsi 60.1, Dharavi 49.3).
+#
+# Positions: Santacruz and Colaba are the IMD observatories (19.0896 N 72.8656 E; 18 deg 54'N
+# 72 deg 49'E). The paper gives no coordinates for the other gauges; they were read off its
+# Fig. 1 (a schematic map with a 5' graticule) and are good to about 2 km.
+# Used by scripts/scoring/mumbai_figures.py (fig 8, fig 9) and scripts/scoring/post_hoc.py.
+
+window_utc: ["2005-07-26T03:00", "2005-07-27T03:00"]     # 08:30 IST 26 July to 08:30 IST 27 July
+
+stations:            # name: [lat, lon, 24 h total mm, position source]
+  Santacruz:    [19.0896, 72.8656, 944.2, IMD observatory]
+  Colaba:       [18.9000, 72.8167, 73.4, IMD observatory]
+  Vihar Lake:   [19.152, 72.913, 1049.0, read off Litta Fig. 1]
+  Tulsi Lake:   [19.187, 72.913, 601.0, read off Litta Fig. 1]
+  Bhandup:      [19.130, 72.937, 815.0, read off Litta Fig. 1]
+  Thane:        [19.177, 72.990, 720.0, read off Litta Fig. 1]
+  Bhiwandi:     [19.247, 73.066, 748.0, read off Litta Fig. 1]
+  Kalyan:       [19.212, 73.143, 619.0, read off Litta Fig. 1]
+  Dharavi:      [19.033, 72.859, 493.0, read off Litta Fig. 1]
+  Malabar Hill: [18.942, 72.815, 74.0, read off Litta Fig. 1]
+
+# Litta Fig. 2: accumulation since 06 UTC 26 July (cm). The 24 h total from 03 UTC equals the
+# 03 UTC 27 July value (94.4 cm, 7.34 cm), so the rain between 03 and 06 UTC was negligible.
+three_hourly:
+  times_utc: ["2005-07-26T06:00", "2005-07-26T09:00", "2005-07-26T12:00", "2005-07-26T15:00",
+              "2005-07-26T18:00", "2005-07-26T21:00", "2005-07-27T00:00", "2005-07-27T03:00"]
+  Santacruz_cm: [0.0, 1.93, 40.01, 66.77, 76.88, 88.5, 89.6, 94.4]
+  Colaba_cm:    [0.0, 0.07, 2.65, 2.65, 3.31, 3.31, 5.71, 7.34]
