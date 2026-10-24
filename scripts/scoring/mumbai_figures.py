@@ -93,7 +93,7 @@ def wrf_at(d, dom, t, names):
                 missing = [v for v in names if v not in ds]
                 if missing:
                     raise KeyError(f"{f.name} lacks {missing} (slim archive?)")
-                out = {v: ds[v].values[ts.index(t)] for v in names}
+                out = {v: ds[v].isel(Time=ts.index(t)).values for v in names}   # one time only
                 out["DX"] = float(ds.attrs["DX"])
                 out["TRUELAT1"] = float(ds.attrs.get("TRUELAT1", 0.0))
             return out
