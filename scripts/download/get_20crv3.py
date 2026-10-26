@@ -11,6 +11,8 @@ File names are resolved from the THREDDS catalog at run time, so a renamed file
 fails loudly instead of silently picking the wrong variable.
 
 Output: data/drivers/<event>_20CRv3.nc in the format defined in scripts/common.py.
+fetch(name, times, box) does the same for any list of 3-hourly times (also across a year
+boundary) and any box; the multi-event study calls it (multievent/lib/cases.py download).
 
 If the HPC cannot reach psl.noaa.gov, run this same script on any machine that can
 (it only transfers ~50 MB) and copy data/drivers/<event>_20CRv3*.nc across. Or download
@@ -62,9 +64,24 @@ def catalog(dirname: str) -> list[str]:
     if LOCAL:
         return sorted(p.name for p in (Path(LOCAL) / dirname).glob("*.nc"))
     url = f"{BASE}/catalog/{DS}/{dirname}/catalog.xml"
-    with urllib.request.urlopen(url, timeout=120) as r:
-        root = ET.fromstring(r.read())
+    for k in range(4):
+        try:
+            with urllib.request.urlopen(url, timeout=120) as r:
+                root = ET.fromstring(r.read())
+            break
+        except (OSError, ET.ParseError) as err:       # transient THREDDS errors
+            if k == 3:
+                raise RuntimeError(f"catalog {url}: {err}") from err
+            time.sleep(10 * (k + 1))
     return [e.get("name") for e in root.iter() if e.get("name", "").endswith(".nc")]
+
+
+def write_atomic(ds: xr.Dataset, path: Path) -> None:
+    """Write to <path>.part, then rename: a file under its final name is always complete."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_name(path.name + ".part")
+    ds.to_netcdf(tmp)
+    tmp.replace(path)
 
 
 def resolve(files: list[str], prefix: str, year: int | None, level: str | None) -> str:
@@ -175,15 +192,16 @@ def load_checked(da: xr.DataArray, name: str, retries: int = 5, chunk: int = 8) 
     return xr.concat(parts, dim="time")
 
 
-def subset(da: xr.DataArray, t0=None, t1=None, name: str | None = None) -> xr.DataArray:
+def subset(da: xr.DataArray, t0=None, t1=None, name: str | None = None, box: dict | None = None) -> xr.DataArray:
     """Contiguous slices in the file's own order (one small OPeNDAP request), then sort."""
+    box = box or DRIVER_BOX
     lat = da["lat"].values
-    lo, hi = DRIVER_BOX["lat_min"], DRIVER_BOX["lat_max"]
+    lo, hi = box["lat_min"], box["lat_max"]
     da = da.sel(lat=slice(hi, lo) if lat[0] > lat[-1] else slice(lo, hi))
     lon = da["lon"].values
     if lon.min() < 0:
         raise RuntimeError("expected 0-360 longitudes in PSL 20CRv3 files")
-    da = da.sel(lon=slice(DRIVER_BOX["lon_min"], DRIVER_BOX["lon_max"]))
+    da = da.sel(lon=slice(box["lon_min"], box["lon_max"]))
     if t0 is not None:
         da = da.sel(time=slice(t0, t1))
     if da.size == 0:
@@ -193,29 +211,34 @@ def subset(da: xr.DataArray, t0=None, t1=None, name: str | None = None) -> xr.Da
 
 def main(event: str) -> None:
     cfg = load_config()
-    ev = cfg["events"][event]
-    tt = times(ev, 3)
-    t0, t1 = np.datetime64(tt[0]), np.datetime64(tt[-1])
-    year = tt[0].year
-    s = stream(year)
+    fetch(event, times(cfg["events"][event], 3), DRIVER_BOX)
+
+
+def fetch(event: str, tt: list, box: dict) -> None:
+    """Driver file for `event` at the 3-hourly times `tt`, subset to `box`. PSL keeps one file
+    per variable and year, so a window across 31 December reads two files per variable."""
+    years = sorted({t.year for t in tt})
     out = {}
     cache: dict[str, list[str]] = {}
     for std, stem, prefix, level in FIELDS:
-        d = stem + s
-        cache.setdefault(d, catalog(d))
-        fname = resolve(cache[d], prefix, year, level)
-        print(f"{std:7s} <- {d}/{fname}", flush=True)
-        ds = open_remote(d, fname)
-        var = [v for v in ds.data_vars if ds[v].ndim >= 3]
-        if len(var) != 1:
-            raise RuntimeError(f"{fname}: expected one data variable, found {var}")
-        da = subset(ds[var[0]], t0, t1, name=std)
-        out[std] = (da, ds)
+        parts = []
+        for year in years:
+            d = stem + stream(year)
+            if d not in cache:
+                cache[d] = catalog(d)
+            fname = resolve(cache[d], prefix, year, level)
+            print(f"{std:7s} <- {d}/{fname}", flush=True)
+            ds = open_remote(d, fname)
+            var = [v for v in ds.data_vars if ds[v].ndim >= 3]
+            if len(var) != 1:
+                raise RuntimeError(f"{fname}: expected one data variable, found {var}")
+            ty = [t for t in tt if t.year == year]
+            parts.append(subset(ds[var[0]], np.datetime64(ty[0]), np.datetime64(ty[-1]), name=std, box=box))
+        out[std] = (parts[0] if len(parts) == 1 else xr.concat(parts, dim="time"), None)
     # static fields
-    d = "timeInvariant" + s
-    cache.setdefault(d, catalog(d))
-    land = subset(open_remote(d, "land.nc")["land"])
-    hgt = subset(open_remote(d, "hgt.sfc.nc")["hgt"])
+    d = "timeInvariant" + stream(years[0])
+    land = subset(open_remote(d, "land.nc")["land"], box=box)
+    hgt = subset(open_remote(d, "hgt.sfc.nc")["hgt"], box=box)
     land = land.isel(time=0, drop=True) if "time" in land.dims else land
     hgt = hgt.isel(time=0, drop=True) if "time" in hgt.dims else hgt
 
@@ -290,10 +313,9 @@ def main(event: str) -> None:
     pr = out["PRATE"][0]
     pr = pr.sel(time=std["time"].values)
     prf = driver_file(event, "20CRv3").with_name(f"{event}_20CRv3_precip.nc")
-    prf.parent.mkdir(parents=True, exist_ok=True)
-    xr.Dataset({"pr": pr.astype("float32")}).assign_attrs(
+    write_atomic(xr.Dataset({"pr": pr.astype("float32")}).assign_attrs(
         units="kg m-2 s-1", interval_hours=3,
-        convention="value at time t = mean rate over the 3 h ending at t (see docs/metrics.md)").to_netcdf(prf)
+        convention="value at time t = mean rate over the 3 h ending at t (see docs/metrics.md)"), prf)
 
     if std.sizes["time"] != ntime:
         raise RuntimeError(f"expected {ntime} 3-hourly times, got {std.sizes['time']}")
@@ -301,8 +323,7 @@ def main(event: str) -> None:
                      event=event, driver="20CRv3", grid="1 degree regular lat-lon")
     check_standard(std)
     f = driver_file(event, "20CRv3")
-    f.parent.mkdir(parents=True, exist_ok=True)
-    std.to_netcdf(f)
+    write_atomic(std, f)          # last: the driver file exists only once everything is written
     print(f"wrote {f}  ({f.stat().st_size/1e6:.1f} MB)")
 
 

@@ -1,0 +1,4 @@
+#!/bin/bash
+# stand-in for mpirun/mpiexec/srun: "-n N" or "-np N", then the program, run once
+case $1 in -n|-np) shift 2 ;; esac
+exec "$@"

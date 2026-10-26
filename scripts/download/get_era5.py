@@ -8,11 +8,13 @@ ERA5 is subsampled to 3-hourly so that it reaches the regional models at the sam
 boundary update interval as 20CRv3; the only difference between the two runs is the driver.
 
 Output: data/drivers/<event>_ERA5.nc in the format defined in scripts/common.py.
+fetch(name, times, box) does the same for any 3-hourly times (also across months) and any
+box; the multi-event study calls it (multievent/lib/cases.py download).
 """
 from __future__ import annotations
 
 import sys
-from datetime import timedelta
+from datetime import datetime, timedelta
 from pathlib import Path
 
 import numpy as np
@@ -35,13 +37,17 @@ SL_VARS = ["surface_pressure", "mean_sea_level_pressure", "2m_temperature", "2m_
 ERA5_SOIL_CM = [(0, 7), (7, 28), (28, 100), (100, 289)]
 
 
-def request(tt):
+def request(tt, box=None):
+    """CDS request for the days of `tt`, which must all be in one calendar month."""
+    box = box or DRIVER_BOX
+    if len({(t.year, t.month) for t in tt}) != 1:
+        raise ValueError("one CDS request covers one calendar month")
     days = sorted({t.strftime("%d") for t in tt})
     return {
         "product_type": ["reanalysis"],
         "year": [tt[0].strftime("%Y")], "month": [tt[0].strftime("%m")], "day": days,
         "time": [f"{h:02d}:00" for h in range(0, 24, 3)],
-        "area": [DRIVER_BOX["lat_max"], DRIVER_BOX["lon_min"], DRIVER_BOX["lat_min"], DRIVER_BOX["lon_max"]],
+        "area": [box["lat_max"], box["lon_min"], box["lat_min"], box["lon_max"]],
         "data_format": "netcdf", "download_format": "unarchived",
     }
 
@@ -102,6 +108,8 @@ def fill_dry_land(sm: xr.DataArray, land: xr.DataArray) -> xr.DataArray:
 
 
 def write_atomic(ds: xr.Dataset, path: Path) -> None:
+    """Write to <path>.part, then rename: a file under its final name is always complete."""
+    path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_name(path.name + ".part")
     ds.to_netcdf(tmp)
     tmp.replace(path)
@@ -166,37 +174,57 @@ class Fetcher:
 
 def main(event: str) -> None:
     cfg = load_config()
-    ev = cfg["events"][event]
-    tt = times(ev, 3)
-    if len({(t.year, t.month) for t in tt}) != 1:
-        raise RuntimeError("event spans two months; split the request")
+    fetch(event, times(cfg["events"][event], 3), DRIVER_BOX)
+
+
+def fetch(event: str, tt: list, box: dict) -> None:
+    """Driver file for `event` at the 3-hourly times `tt`, subset to `box`. CDS requests are
+    per calendar month (year/month/day lists), so a window across a month boundary is fetched
+    month by month and joined; files of a single-month window keep their old names."""
     raw = DATA / "raw" / "era5"
     raw.mkdir(parents=True, exist_ok=True)
-    fpl, fsl = raw / f"{event}_pl.nc", raw / f"{event}_sl.nc"
+    months = sorted({(t.year, t.month) for t in tt})
+    tag = (lambda y, m: "") if len(months) == 1 else (lambda y, m: f"_{y}{m:02d}")
     cds = Fetcher()
-    # 5 variables x 37 levels x 7 days x 8 times exceeds the CDS cost limit in one request,
-    # so pressure levels go one variable per request from the start.
-    if not have(fpl):
-        parts = []
-        for v in PL_VARS:
-            fv = raw / f"{event}_pl_{v}.nc"
-            cds.get("reanalysis-era5-pressure-levels",
-                    request(tt) | {"variable": [v], "pressure_level": [str(p) for p in PLEVS]}, fv)
-            parts.append(norm(open_cds(fv)))
-        write_atomic(xr.merge(parts, compat="override", join="exact"), fpl)
-    cds.get("reanalysis-era5-single-levels", request(tt) | {"variable": SL_VARS}, fsl)
-    ftp = raw / f"{event}_tp.nc"
-    r = request(tt) | {"variable": ["total_precipitation"], "time": [f"{h:02d}:00" for h in range(24)]}
-    r["day"] = sorted({t.strftime("%d") for t in tt} | {(tt[-1] + timedelta(days=1)).strftime("%d")})
-    cds.get("reanalysis-era5-single-levels", r, ftp)
-    tp = norm(open_cds(ftp))["tp"]
+    fpls, fsls = [], []
+    for y, m in months:
+        ttm = [t for t in tt if (t.year, t.month) == (y, m)]
+        fpl, fsl = raw / f"{event}_pl{tag(y, m)}.nc", raw / f"{event}_sl{tag(y, m)}.nc"
+        # 5 variables x 37 levels x 7 days x 8 times exceeds the CDS cost limit in one request,
+        # so pressure levels go one variable per request from the start.
+        if not have(fpl):
+            parts = []
+            for v in PL_VARS:
+                fv = raw / f"{event}_pl{tag(y, m)}_{v}.nc"
+                cds.get("reanalysis-era5-pressure-levels",
+                        request(ttm, box) | {"variable": [v], "pressure_level": [str(p) for p in PLEVS]}, fv)
+                parts.append(norm(open_cds(fv)))
+            write_atomic(xr.merge(parts, compat="override", join="exact"), fpl)
+        cds.get("reanalysis-era5-single-levels", request(ttm, box) | {"variable": SL_VARS}, fsl)
+        fpls.append(fpl)
+        fsls.append(fsl)
+    # hourly precipitation for every day of the window and the next day (the hour ending at
+    # 00 UTC belongs to the previous day's accumulation), requested month by month
+    days = sorted({t.date() for t in tt} | {(tt[-1] + timedelta(days=1)).date()})
+    tp_months = sorted({(d.year, d.month) for d in days})
+    ftps = []
+    for y, m in tp_months:
+        dm = [d for d in days if (d.year, d.month) == (y, m)]
+        ftp = raw / (f"{event}_tp.nc" if len(tp_months) == 1 else f"{event}_tp_{y}{m:02d}.nc")
+        r = request([datetime(d.year, d.month, d.day) for d in dm], box) | {
+            "variable": ["total_precipitation"], "time": [f"{h:02d}:00" for h in range(24)]}
+        cds.get("reanalysis-era5-single-levels", r, ftp)
+        ftps.append(ftp)
+    tp = xr.concat([norm(open_cds(f))["tp"] for f in ftps], dim="time").sortby("time")
     # ERA5 tp at time t is the accumulation over the hour ending at t (m) -> rate
     prf = driver_file(event, "ERA5").with_name(f"{event}_ERA5_precip.nc")
-    prf.parent.mkdir(parents=True, exist_ok=True)
-    xr.Dataset({"pr": (tp * 1000.0 / 3600.0).astype("float32")}).assign_attrs(
+    write_atomic(xr.Dataset({"pr": (tp * 1000.0 / 3600.0).astype("float32")}).assign_attrs(
         units="kg m-2 s-1", interval_hours=1,
-        convention="value at time t = mean rate over the hour ending at t").to_netcdf(prf)
-    pl, sl = norm(open_cds(fpl)), norm(open_cds(fsl))
+        convention="value at time t = mean rate over the hour ending at t"), prf)
+    join = lambda fs: norm(open_cds(fs[0])) if len(fs) == 1 else \
+        xr.concat([norm(open_cds(f)) for f in fs], dim="time", data_vars="minimal", coords="minimal",
+                  compat="override").sortby("time")
+    pl, sl = join(fpls), join(fsls)
     tsel = np.array(tt, dtype="datetime64[ns]")
     pl, sl = pl.sel(time=tsel), sl.sel(time=tsel)
 
@@ -251,8 +279,7 @@ def main(event: str) -> None:
                      grid="0.25 degree regular lat-lon")
     check_standard(std)
     f = driver_file(event, "ERA5")
-    f.parent.mkdir(parents=True, exist_ok=True)
-    std.to_netcdf(f)
+    write_atomic(std, f)          # last: the driver file exists only once everything is written
     print(f"wrote {f}  ({f.stat().st_size/1e6:.1f} MB)")
 
 

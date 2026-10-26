@@ -1,0 +1,10 @@
+#!/usr/bin/env python3
+import glob, f90nml
+n = f90nml.read("namelist.input")
+assert isinstance(n["domains"]["num_metgrid_levels"], int), "NUM_METGRID_LEVELS not filled in"
+t = n["time_control"]
+s = f"{t['start_year'][0]}-{int(t['start_month'][0]):02d}-{int(t['start_day'][0]):02d}_{int(t['start_hour'][0]):02d}:00:00"
+assert glob.glob(f"met_em.d02.{s}.nc"), f"no met_em at {s}"
+for f in ("wrfinput_d01", "wrfinput_d02", "wrfbdy_d01"):
+    open(f, "w").write("x")
+open("rsl.error.0000", "w").write("real stuff\n SUCCESS COMPLETE REAL_EM INIT\n")

@@ -1,0 +1,9 @@
+#!/usr/bin/env python3
+import re
+import numpy as np, xarray as xr
+t = open("namelist.wps").read()
+out = re.search(r"opt_output_from_geogrid_path\s*=\s*'([^']*)'", t).group(1)
+for d, (nx, ny) in enumerate(zip(*[map(int, re.search(rf"{k}\s*=\s*([^\n]*)", t).group(1).rstrip(",").split(",")) for k in ("e_we", "e_sn")]), 1):
+    xr.Dataset({"HGT_M": (("Time", "south_north", "west_east"), np.zeros((1, ny - 1, nx - 1), "f4"))}).to_netcdf(f"{out}/geo_em.d0{d}.nc")
+open("geogrid.log", "w").write("!  Successful completion of geogrid.        !\n")
+print("!  Successful completion of geogrid.        !")

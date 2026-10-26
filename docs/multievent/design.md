@@ -125,18 +125,16 @@ range.
   8 runs of 16 ranks at a time. WRF stays on one node per run, so nothing depends on the
   interconnect. The first HPC adds capacity.
 
-## 8. To build (after 30 October)
+## 8. Pipeline
 
-1. Run the selection on IMD 1901-2015 (`get_imd.py` for 115 years: about 3 GB of raw files and the same
-   again as netCDF), then write
-   `docs/multievent/events.md` (documents for each event).
-2. Config for the study: events from `results/multievent/selected.csv`, the 36/12 km geometry,
-   physics P0-P6. `generate_namelists.py` writes one namelist per event x driver x set-up.
-3. Driver subsets: 20CRv3 (OPeNDAP) for 20 events; ERA5 (CDS, queue) for 10, on the 36 km domain.
-4. WRF build with the Thompson fix on the second HPC; scheduler scripts (PBS or SLURM), one run
-   per node.
-5. Scoring with 5-day event windows; statistics M1-M6.
-6. Fix the physics set and M1-M6 in a commit **before the first run**.
+`multievent/` (README there): numbered scripts from installation to running.
+- 01-04 libraries, WRF 4.5 with the Thompson fix, WPS 4.5, Python, checks
+- 05-08 IMD 1901-2015, event selection, 20CRv3 and ERA5 subsets
+- 09-10 cases and WPS
+- 11-14 runs (local, PBS or SLURM), status, rain on the IMD grid, clean-up
+
+Settings in `multievent/study.yaml`. Disk: about 300 GB for all runs (README).
+Still to do before the first run: fix the physics set and M1-M6 in a commit (section 6).
 
 ## References
 

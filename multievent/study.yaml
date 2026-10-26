@@ -1,0 +1,65 @@
+# Multi-event study: WRF 36/12 km, twenty Indian extreme-rainfall events, 20CRv3 (+ ERA5 from 1940),
+# physics set P0-P6. Design and criteria: docs/multievent/design.md. Read by multievent/lib/cases.py.
+# Every case directory stores the resolved settings it was created with (case.json), so a later
+# edit here never changes a run that has already been created.
+
+events_file: multievent/events.yaml        # written by 06_select_events.sh from the IMD ranking
+
+# Run in the same configuration and reported next to the 20 (design.md, section 2, step 7).
+# IMD date labels of the three event days; box centre (lat, lon) as select_events.py defines it.
+anchors:
+  A1_kerala1924: {first_label: "1924-07-16", last_label: "1924-07-18", lat: 10.0, lon: 76.5,
+                  region: West coast and Ghats, note: "Great Flood of 1924; IMD peak day labelled 17 July"}
+  A2_mumbai2005: {first_label: "2005-07-26", last_label: "2005-07-28", lat: 19.0, lon: 73.0,
+                  region: West coast and Ghats, note: "Mumbai cloudburst; 944 mm at Santacruz labelled 27 July"}
+
+grid:
+  map_proj: mercator
+  truelat: 15.0
+  d01: {dx_km: 36.0, center_lat: 17.4, center_lon: 80.0, nx: 241, ny: 197}   # about 40-120E, 15S-45N
+  d02: {dx_km: 12.0, ratio: 3, nx: 151, ny: 151}                               # 1,800 km, centred on the event
+  min_margin_cells: 10       # d02 at least this many d01 cells inside d01 (moved inward if needed)
+  levels: 50
+  ptop_hpa: 50.0
+  time_step_s: 150           # d01; d02 = 50 s. Below 5 x dx because d01 contains the Tibetan Plateau
+
+drivers:
+  20CRv3: {prefix: TWCR, first_year: 1836}
+  ERA5:   {prefix: ERA5, first_year: 1940}
+# Driver subset: d01 plus a 5 degree margin
+driver_box: {lat_min: -20.0, lat_max: 50.0, lon_min: 35.0, lon_max: 125.0}
+
+dates:
+  spinup_hours: 27           # 00 UTC start to the first scored 24 h window (03 UTC), as in the two-event study
+  margin_days: 1             # IMD days scored before and after the three event days
+  last_sim_end: "2015-12-31T21:00"   # the last 3-hourly time of 20CRv3 (and of the IMD period)
+
+# P0 = the two-event study's WRF configuration. Lists are [d01, d02].
+physics_base:
+  mp_physics: [8, 8]               # Thompson (with patches/wrf45_thompson_fix.py)
+  cu_physics: [3, 3]               # Grell-Freitas (scale-aware) in both domains
+  ra_lw_physics: [4, 4]            # RRTMG
+  ra_sw_physics: [4, 4]
+  radt: [12, 12]                   # minutes; the same in both domains
+  bl_pbl_physics: [1, 1]           # YSU
+  sf_sfclay_physics: [1, 1]        # revised MM5
+  sf_surface_physics: [2, 2]       # Noah
+  feedback: 0                      # one-way
+physics:                           # each variant changes one thing from P0 (design.md, section 4)
+  P0: {}
+  P1: {cu_physics: [1, 1]}                                   # Kain-Fritsch
+  P2: {cu_physics: [6, 6]}                                   # Tiedtke
+  P3: {cu_physics: [3, 0]}                                   # no cumulus scheme at 12 km
+  P4: {mp_physics: [6, 6]}                                   # WSM6
+  P5: {bl_pbl_physics: [5, 5], sf_sfclay_physics: [5, 5]}    # MYNN 2.5 + MYNN surface layer
+  P6: {feedback: 1}                                          # two-way nesting
+
+output:
+  d02_history_min: {P0: 60, other: 180}    # rain and 2-D fields; the scoring needs 03 UTC only
+  d01_history_min: 720                     # 36 km: synoptic context only
+  dynamics_3d_min: 180                     # 3-D wind, temperature, pressure, moisture (d02, P0 only)
+  restart_h: 12
+
+run:
+  nprocs: 16                 # MPI ranks per run (one node of the second HPC)
+  order: [P0, P3, P1, P2, P4, P5, P6]      # physics sets submitted in this order

@@ -96,6 +96,8 @@ docs/
   runbook.md, budget.md       how it was run; planned and measured cost
 results/                      scores.csv, SCORECARD.md, HYPOTHESES.md, figures/, post_hoc/
 assets/boundaries/            coast, boundary of India and state boundaries for the maps (sources, licences)
+multievent/                   the 20-event study (design: docs/multievent/design.md): numbered scripts
+                              01-14 from installing WRF to running and extracting the rain
 ```
 
 ## Reproduce

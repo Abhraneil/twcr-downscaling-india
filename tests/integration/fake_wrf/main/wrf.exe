@@ -1,0 +1,61 @@
+#!/usr/bin/env python3
+"""Fake wrf.exe: d02 rain accumulating around the event centre, history and restart files on the
+schedule of the namelist, restart continuation, one optional early stop."""
+import json, os, sys
+from datetime import datetime, timedelta
+import f90nml, numpy as np, xarray as xr
+n = f90nml.read("namelist.input"); t = n["time_control"]
+c = json.load(open("case.json"))
+fmt = lambda x: x.strftime("%Y-%m-%d_%H:%M:%S")
+s = datetime(t["start_year"][0], int(t["start_month"][0]), int(t["start_day"][0]), int(t["start_hour"][0]))
+e = s + timedelta(hours=t["run_hours"])
+rst, ri = t["restart"], t["restart_interval"]
+hist, fpo = t["history_interval"], t["frames_per_outfile"]
+crash = os.environ.get("FAKE_WRF_CRASH_AT", "")
+log = open("rsl.error.0000", "w")
+if rst:
+    assert os.path.exists(f"wrfrst_d01_{fmt(s)}") and os.path.exists(f"wrfrst_d02_{fmt(s)}"), "missing restart files"
+for f in ("wrfinput_d01", "wrfbdy_d01"):
+    assert os.path.exists(f), f"no {f}"
+sw, ne = c["grid"]["d02_nest"]["sw"], c["grid"]["d02_nest"]["ne"]
+ev = c["event_info"]
+grids = {1: (np.linspace(-15, 45, 20), np.linspace(40, 120, 24)),
+         2: (np.linspace(sw[0], ne[0], 150), np.linspace(sw[1], ne[1], 150))}
+def acc(dom, x):          # accumulated rain (mm) since the simulation start
+    la, lo = np.meshgrid(*grids[dom], indexing="ij")
+    h = (x - datetime.fromisoformat(c["dates"]["sim_start"])).total_seconds() / 3600
+    return (h * 3.0 * np.exp(-((la - ev["lat"]) ** 2 + (lo - ev["lon"]) ** 2) / 0.5)).astype("f4")
+def write(dom, times):
+    la, lo = np.meshgrid(*grids[dom], indexing="ij")
+    a = np.stack([acc(dom, x) for x in times])
+    nt = len(times)
+    xr.Dataset({"Times": (("Time",), np.array([fmt(x).encode() for x in times], dtype="S19")),
+                "XLAT": (("Time", "south_north", "west_east"), np.repeat(la[None], nt, 0).astype("f4")),
+                "XLONG": (("Time", "south_north", "west_east"), np.repeat(lo[None], nt, 0).astype("f4")),
+                "RAINC": (("Time", "south_north", "west_east"), 0.4 * a),
+                "RAINNC": (("Time", "south_north", "west_east"), 0.6 * a)},
+               attrs={"DX": 36000.0 if dom == 1 else 12000.0}).to_netcdf(f"wrfout_d0{dom}_{fmt(times[0])}")
+step = timedelta(hours=1)
+x = s
+pending = {1: [], 2: []}
+while True:
+    for dom in (1, 2):
+        m = int((x - s).total_seconds() // 60)
+        if (m % hist[dom - 1] == 0) and (x != s or not rst or t["write_hist_at_0h_rst"]):
+            pending[dom].append(x)
+            if len(pending[dom]) == fpo[dom - 1] or x == e:
+                write(dom, pending[dom]); pending[dom] = []
+    if x != s and int((x - s).total_seconds() // 60) % ri == 0:
+        for dom in (1, 2):
+            open(f"wrfrst_d0{dom}_{fmt(x)}", "w").write("rst")
+    if x == e:
+        break
+    x += step
+    if fmt(x) == crash and not os.path.exists(crash + ".done"):
+        open(crash + ".done", "w").close()
+        log.flush(); print("Program received signal SIGSEGV", file=sys.stderr); sys.exit(139)
+    log.write(f"Timing for main: time {fmt(x)} on domain   2:    1.0 elapsed seconds\n"); log.flush()
+for dom in (1, 2):
+    if pending[dom]:
+        write(dom, pending[dom])
+log.write("d01 SUCCESS COMPLETE WRF\n")
