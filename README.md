@@ -14,7 +14,7 @@ before 1950 as well as today?
 
 Nine model runs, scored within each event on the same IMD cells with the same metrics,
 against five criteria committed before any of the nine runs was started
-(`docs/metrics.md`, commit `260f8c9`).
+(`docs/metrics.md`, commit `71d643c`).
 
 **White paper:** [`docs/whitepaper/whitepaper.pdf`](docs/whitepaper/whitepaper.pdf)
 

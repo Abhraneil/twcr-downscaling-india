@@ -160,7 +160,7 @@ neither affects the scores, which use IMD land points only.
   with the next observed day. The date-label check found it from the data; the scorer now
   refuses to run when the check fails (`docs/validation.md` item 23).
 - **Criteria fixed before the results.** H1-H5 and their thresholds were committed in
-  `docs/metrics.md` on 15 October 2026 (UTC, 260f8c9), before any of the nine runs was
+  `docs/metrics.md` on 15 October 2026 (UTC, 71d643c), before any of the nine runs was
   started, have not been changed since, and are reported in full, failures included.
 
 ## Limitations to state
